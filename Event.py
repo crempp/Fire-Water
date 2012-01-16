@@ -1,11 +1,3 @@
-''' Event.py
-    
-    Event dispatcher and objects.
-
-    Author:         Chad Rempp
-    Date:           2009/05/07
-    License:        GNU LGPL v3 
-'''
 
 # Python imports
 from datetime import datetime

@@ -1,18 +1,3 @@
-''' Log.py
-	
-	Logging console. The Log object is a singleton that can be called directly to
-	print out debug information using the log() method. This listens to game
-	events and prints them to stdout.
-	
-	There is a bug related to the Dispatcher when implementing Singleton which
-	causes infinite recursion. So put this in __builtin__ until this is fixed.
-
-	Author:			Chad Rempp
-	Date:			2009/05/07
-	License:		GNU LGPL v3 
-	Todo:			Fix singleton recursion error.
-					Handle tracebacks and such depending on arguments to client.
-'''
 
 # Python imports
 import traceback

@@ -1,12 +1,3 @@
-''' Controller.py
-	
-	Map keyboard / mouse controls to game objects
-
-	Author:			Chad Rempp
-	Date:			2009/05/07
-	License:		GNU LGPL v3 
-	Todo:			Add support for keymap options
-'''
 
 # Panda imports
 from direct.showbase.DirectObject import DirectObject

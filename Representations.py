@@ -1,18 +1,4 @@
-''' Representation.py
-    
-    Graphical representations of the entity objects.
-    
-    Each entity has a corresponding representation. The representation class
-    that is instantiated is determined by the name of the entity class. For
-    example, if the GSEng asks for a representation for an EntityLightCapture
-    class a RepresentationLightCapture intance will be returned. For this
-    reason the representation class names must match the entity class names.
 
-    Author:         Chad Rempp
-    Date:           2009/05/07
-    License:        GNU LGPL v3
-    Todo:           
-'''
 # Python imports
 import math
 
