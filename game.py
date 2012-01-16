@@ -1,13 +1,3 @@
-# Author: Ryan Myers
-# Models: Jeff Styers, Reagan Heller
-
-
-# Last Updated: 6/13/2005
-#
-# This tutorial provides an example of creating a character
-# and having it walk around on uneven terrain, as well
-# as implementing a fully rotatable camera.
-
 import direct.directbase.DirectStart
 from direct.showbase.DirectObject import DirectObject
 #from panda3d.core import CollisionTraverser,CollisionNode
@@ -17,15 +7,50 @@ from direct.showbase.DirectObject import DirectObject
 #from panda3d.core import Vec3,Vec4,BitMask32
 #from direct.gui.OnscreenText import OnscreenText
 #from direct.actor.Actor import Actor
+from pandac.PandaModules import NodePath
 
 #import random, sys, os, math
+
+from Water import Water
+from Representations import BattleShip
+
+import Controller
+import Event
+
+from Log import LogConsole
+from CameraMgr import CameraManager
 
 class World(DirectObject):
 
     def __init__(self):
-        pass
+        # Setup logger
+        import __builtin__
+        __builtin__.LOG = LogConsole()
         
+        # Initialize event dispatcher
+        self._dispatcher = Event.Dispatcher()        
         
-
+        # Setup controls
+        self.keyboardcontroller = Controller.KeyboardController()
+        self.mousecontroller = Controller.MouseController()
+        
+        # Build game board
+        boardNP = NodePath("Game Board Parent")
+        boardNP.reparentTo(render)
+        
+        ########################################################################
+        w = Water(boardNP)
+        
+        s1 = BattleShip(parent=w.baseNode, pos=(25, 0, 0))
+        s2 = BattleShip(parent=w.baseNode, pos=(-25, 0, 0))
+        
+        ########################################################################        
+        
+        # Camera
+        c = CameraManager()
+        c.startCamera()
+        
+        c.setTarget(s1)
+        
 w = World()
 run()
