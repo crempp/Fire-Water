@@ -20,8 +20,12 @@ from pandac.PandaModules import VBase3D
 from pandac.PandaModules import Vec2
 from pandac.PandaModules import Vec3
 from pandac.PandaModules import Vec4
+from pandac.PandaModules import TextNode
 from direct.task import Task
+from direct.gui.OnscreenText import OnscreenText
 
+# Game imports
+import Event
 
 class Representation(object):
     '''An abstract class that represents any logical entity in the game.'''
@@ -71,12 +75,63 @@ class RepShip(Representation):
     _selectindicator = None
     _movecursor = None
     
+    _pitchInc   = 1
+    _headingInc = 1
+    _powerInc   = 1
+    
     _gunPitch   = 0
     _gunHeading = 0
     _gunPower   = 0
     
+    _pitchUpStateOn      = False
+    _pitchDownStateOn    = False
+    _headingLeftStateOn  = False
+    _headingRightStateOn = False
+    _powerUpStateOn      = False
+    _powerDownStateOn    = False
+    
     def __init__(self, pos=None,  hpr=None,  tag="", model='', parent=render):
         Representation.__init__(self, pos,  hpr, tag, model, parent)
+        
+        Event.Dispatcher().register(self, 'E_Key_ArrowUp-down',   self.setPitchUpOn)
+        Event.Dispatcher().register(self, 'E_Key_ArrowUp-up',     self.setPitchUpOff)
+        
+        Event.Dispatcher().register(self, 'E_Key_ArrowDown-down',  self.setPitchDownOn)
+        Event.Dispatcher().register(self, 'E_Key_ArrowDown-up',    self.setPitchDownOff)
+        
+        Event.Dispatcher().register(self, 'E_Key_ArrowLeft-down',  self.setHeadingLeftOn)
+        Event.Dispatcher().register(self, 'E_Key_ArrowLeft-up',    self.setHeadingLeftOff)
+        
+        Event.Dispatcher().register(self, 'E_Key_ArrowRight-down', self.setHeadingRightOn)
+        Event.Dispatcher().register(self, 'E_Key_ArrowRight-up',   self.setHeadingRightOff)
+        
+        Event.Dispatcher().register(self, 'E_Key_PageUp-down',     self.setPowerUpOn)
+        Event.Dispatcher().register(self, 'E_Key_PageUp-up',       self.setPowerUpOff)
+        
+        Event.Dispatcher().register(self, 'E_Key_PageDown-down',   self.setPowerDownOn)
+        Event.Dispatcher().register(self, 'E_Key_PageDown-up',     self.setPowerDownOff)
+        
+        taskMgr.add(self.setGun, 'Gun Update Task')
+        self.showInfo(init=True)
+        
+    def showInfo(self, init=False):
+        if (not init):
+            self._pitchText.destroy()
+            self._headingText.destroy()
+            self._powerText.destroy()
+        
+        self._pitchText   = OnscreenText(text = 'Pitch: %s'%self._gunPitch,
+                                         pos = (-1.30, 0.95),
+                                         scale = 0.05,
+                                         align = TextNode.ALeft)
+        self._headingText = OnscreenText(text = 'Heading: %s'%self._gunHeading,
+                                         pos = (-1.30, 0.87),
+                                         scale = 0.05,
+                                         align = TextNode.ALeft)
+        self._powerText   = OnscreenText(text = 'Power: %s'%self._gunPower,
+                                         pos = (-1.30, 0.79),
+                                         scale = 0.05,
+                                         align = TextNode.ALeft)
         
     def selectMove(self):
         LOG.debug("[RepShip] Drawing move selector")
@@ -123,16 +178,70 @@ class RepShip(Representation):
         moveSequence.start()
         self.pos = pos
         
-    def setGunPitch(self, pitch):
-        self._gunPitch = pitch
-    
-    def setGunHeading(self, heading):
-        self._gunHeading = heading
+    def setGun(self, task):
+        # Only run once every 30 frames
+        if ((task.frame % 30) == 0):
+            updated = False
+            if self._pitchUpStateOn:
+                self._gunPitch = min(90, self._gunPitch + self._pitchInc)
+                updated = True
+            elif self._pitchDownStateOn:
+                self._gunPitch = max(0, self._gunPitch - self._pitchInc)
+                updated = True
+            
+            if self._headingLeftStateOn:
+                self._gunHeading = (self._gunHeading + self._headingInc) % 360
+                updated = True
+            elif self._headingRightStateOn:
+                self._gunHeading = (self._gunHeading - self._headingInc) % 360
+                updated = True
+            
+            if self._powerUpStateOn:
+                self._gunPower = min(self._power, self._gunPower + self._powerInc)
+                updated = True
+            elif self._powerDownStateOn:
+                self._gunPower = max(0, self._gunPower - self._powerInc)
+                updated = True
+            
+            if updated:
+                self.showInfo()
+                print("(%s,%s,%s)"%(self._gunPitch, self._gunHeading, self._gunPower))
         
-    def setGunPower(self, power):
-        self._gunPower = power
+        return task.cont
+            
+    def setPitchUpOn(self, event):
+        self._pitchUpStateOn = True
+    def setPitchUpOff(self, event):
+        self._pitchUpStateOn = False
+        
+    def setPitchDownOn(self, event):
+        self._pitchDownStateOn = True
+    def setPitchDownOff(self, event):
+        self._pitchDownStateOn = False
+        
+    def setHeadingLeftOn(self, event):
+        self._headingLeftStateOn = True
+    def setHeadingLeftOff(self, event):
+        self._headingLeftStateOn = False
+    
+    def setHeadingRightOn(self, event):
+        self._headingRightStateOn = True
+    def setHeadingRightOff(self, event):
+        self._headingRightStateOn = False
+    
+    def setPowerUpOn(self, event):
+        self._powerUpStateOn = True
+    def setPowerUpOff(self, event):
+        self._powerUpStateOn = False
+        
+    def setPowerDownOn(self, event):
+        self._powerDownStateOn = True
+    def setPowerDownOff(self, event):
+        self._powerDownStateOn = False
         
 class BattleShip(RepShip):
+    _power = 100
+    
     def __init__(self, pos=None,  hpr=None,  tag="", model='', parent=render):
         RepShip.__init__(self, pos, hpr, tag, model, parent)
         

@@ -60,7 +60,7 @@ class CameraManager(DirectObject):
         self.gutterdrive = False
         # Factor used to convert mouse movement into world movement
         self.gutterdriveMouseFactor = 100
-        self.panMouseFactor = 1000
+        self.panMouseFactor = 2000
         
     def startCamera(self):
         LOG.debug("Starting CameraManager")
@@ -70,14 +70,14 @@ class CameraManager(DirectObject):
         Event.Dispatcher().register(self, 'E_Mouse_3_Up', self.stopDrag)
         Event.Dispatcher().register(self, 'E_MouseWheel_Up', self.adjustCamDist)
         Event.Dispatcher().register(self, 'E_MouseWheel_Down', self.adjustCamDist)
-        Event.Dispatcher().register(self, 'E_Key_CameraUp', self.keyMove)
-        Event.Dispatcher().register(self, 'E_Key_CameraUp-up', self.keyMove)
-        Event.Dispatcher().register(self, 'E_Key_CameraDown', self.keyMove)
-        Event.Dispatcher().register(self, 'E_Key_CameraDown-up', self.keyMove)
-        Event.Dispatcher().register(self, 'E_Key_CameraLeft', self.keyMove)
-        Event.Dispatcher().register(self, 'E_Key_CameraLeft-up', self.keyMove)
-        Event.Dispatcher().register(self, 'E_Key_CameraRight', self.keyMove)
-        Event.Dispatcher().register(self, 'E_Key_CameraRight-up', self.keyMove)
+        #Event.Dispatcher().register(self, 'E_Key_CameraUp', self.keyMove)
+        #Event.Dispatcher().register(self, 'E_Key_CameraUp-up', self.keyMove)
+        #Event.Dispatcher().register(self, 'E_Key_CameraDown', self.keyMove)
+        #Event.Dispatcher().register(self, 'E_Key_CameraDown-up', self.keyMove)
+        #Event.Dispatcher().register(self, 'E_Key_CameraLeft', self.keyMove)
+        #Event.Dispatcher().register(self, 'E_Key_CameraLeft-up', self.keyMove)
+        #Event.Dispatcher().register(self, 'E_Key_CameraRight', self.keyMove)
+        #Event.Dispatcher().register(self, 'E_Key_CameraRight-up', self.keyMove)
         
         # Turn off default camera movement
         base.disableMouse()
@@ -161,20 +161,20 @@ class CameraManager(DirectObject):
                 # If we are dragging spin the camera around the central point
                 # Vector from camera to target
                 cameraVec = self.target - self.pos
-                LOG.debug("cameraVec = %s" % (cameraVec))
+                #LOG.debug("cameraVec = %s" % (cameraVec))
                 distFact  = ( 1 / cameraVec.length() )
-                LOG.debug("cameraVec.length() = %s" % (cameraVec.length()))
-                LOG.debug("distFact = %s" % (distFact))
+                #LOG.debug("cameraVec.length() = %s" % (cameraVec.length()))
+                #LOG.debug("distFact = %s" % (distFact))
                 
-                LOG.debug("(mx, my) = (%s, %s)" % (self.mx, self.my))
-                LOG.debug("mpos = (%s, %s)" % (self.mpos.getX(), self.mpos.getY()))
-                LOG.debug("(mdx, mdy) = (%s, %s)" % ((self.mx - self.mpos.getX()), (self.my - self.mpos.getY())))
+                #LOG.debug("(mx, my) = (%s, %s)" % (self.mx, self.my))
+                #LOG.debug("mpos = (%s, %s)" % (self.mpos.getX(), self.mpos.getY()))
+                #LOG.debug("(mdx, mdy) = (%s, %s)" % ((self.mx - self.mpos.getX()), (self.my - self.mpos.getY())))
                 
                 dx = (self.mx - self.mpos.getX()) * self.panMouseFactor * distFact
                 dy = 0
                 dz = (self.my - self.mpos.getY()) * self.panMouseFactor * distFact
                 
-                LOG.debug("D = (%s, %s, %s)" % (dx, dy, dz))
+                #LOG.debug("D = (%s, %s, %s)" % (dx, dy, dz))
                 
                 self.pos.setX(self.pos.getX() + dx)
                 self.pos.setY(self.pos.getY() + dy)
@@ -249,24 +249,24 @@ class CameraManager(DirectObject):
         return task.cont
 
     def resetMousePos(self):
-        LOG.debug("RESET")
+        #LOG.debug("RESET")
         self.mx = self.mpos.getX()
         self.my = self.mpos.getY()
     
-    def keyMove(self, event):
-        if event.type == 'E_Key_CameraUp':
-            self.movingUp = True
-        elif event.type =='E_Key_CameraUp-up':
-            self.movingUp = False
-        elif event.type =='E_Key_CameraDown':
-            self.movingDown = True
-        elif event.type =='E_Key_CameraDown-up':
-            self.movingDown = False
-        elif event.type =='E_Key_CameraLeft':
-            self.movingLeft = True
-        elif event.type =='E_Key_CameraLeft-up':
-            self.movingLeft = False
-        elif event.type =='E_Key_CameraRight':
-            self.movingRight = True
-        elif event.type =='E_Key_CameraRight-up':
-            self.movingRight = False
+    #def keyMove(self, event):
+    #    if event.type == 'E_Key_CameraUp':
+    #        self.movingUp = True
+    #    elif event.type =='E_Key_CameraUp-up':
+    #        self.movingUp = False
+    #    elif event.type =='E_Key_CameraDown':
+    #        self.movingDown = True
+    #    elif event.type =='E_Key_CameraDown-up':
+    #        self.movingDown = False
+    #    elif event.type =='E_Key_CameraLeft':
+    #        self.movingLeft = True
+    #    elif event.type =='E_Key_CameraLeft-up':
+    #        self.movingLeft = False
+    #    elif event.type =='E_Key_CameraRight':
+    #        self.movingRight = True
+    #    elif event.type =='E_Key_CameraRight-up':
+    #        self.movingRight = False
