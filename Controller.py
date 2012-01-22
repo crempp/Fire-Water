@@ -29,6 +29,7 @@ class KeyboardController(DirectObject):
 		self.accept("page_down", Event.Dispatcher().broadcast, [Event.Event('E_Key_PageDown-down', self)])
 		self.accept("page_up-up", Event.Dispatcher().broadcast, [Event.Event('E_Key_PageUp-up', self)])
 		self.accept("page_down-up", Event.Dispatcher().broadcast, [Event.Event('E_Key_PageDown-up', self)])
+		self.accept("space", Event.Dispatcher().broadcast, [Event.Event('E_Key_Fire', self)])
 		
 class MouseController(DirectObject):
 	'''This class registers mouse events with Panda3D and broadcasts events'''

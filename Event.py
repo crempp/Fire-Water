@@ -30,16 +30,16 @@ EVENTS = ['E_All',
           'E_Key_PageDown-up',
           
           'E_Key_Move',
+          'E_Key_Fire',
           'E_Key_Exit',
-          'E_New_Entity',
-          'E_New_EntityRep',
-          'E_EntitySelect',
-          'E_EntityUnSelect',
-          'E_UpdateGUI',
           'E_StartGame',
           'E_EndTurn',
           'E_ExitGame',
-          'E_ExitProgram']
+          'E_ExitProgram'
+          
+          'E_EntitySelect',
+          'E_EntityUnSelect',
+          'E_UpdateGUI',]
 
 class Event(object):
     '''
@@ -87,7 +87,7 @@ class Dispatcher(object):
                 listener is the object to register, event is the string representation
                 of the event and handler is the method to call when the event occurs.
                 TODO - Add support for handler arguments.'''
-        LOG.debug("  Dispatcher registering - %s"%str(listener))
+        LOG.debug("  Dispatcher registering evenet %s to %s"%(event, str(listener)))
         if event in self._eventlist:
             self._listeners[event].append([listener,handler])
         else:
@@ -115,6 +115,7 @@ class Dispatcher(object):
         #print self._listeners
         LOG.debug("[Dispatcher] Broadcasting %s"%str(event))
         if event is not None and event.type in self._listeners.keys():
+            
             for l in self._listeners[event.type]:
                 instance  = l[0]
                 classtype = l[0].__class__

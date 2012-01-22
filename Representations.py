@@ -27,6 +27,9 @@ from direct.gui.OnscreenText import OnscreenText
 # Game imports
 import Event
 
+GRAV_ACCEL = 9.80665
+RAD_FACTOR = (math.pi / 180)
+
 class Representation(object):
     '''An abstract class that represents any logical entity in the game.'''
     pos = Vec3(0, 0, 0)
@@ -72,6 +75,10 @@ class Representation(object):
         return "<Rep: " + self.tag + ", pos=" + str(self.pos) + ">"
     
 class RepShip(Representation):
+    _active = False
+    
+    _moveRadius = 100
+    
     _selectindicator = None
     _movecursor = None
     
@@ -79,9 +86,11 @@ class RepShip(Representation):
     _headingInc = 1
     _powerInc   = 1
     
-    _gunPitch   = 0
+    _gunPitch   = 45
     _gunHeading = 0
-    _gunPower   = 0
+    _gunPower   = 50
+    _gunTheta   = 0    
+    _gunHeadingTheta =0
     
     _pitchUpStateOn      = False
     _pitchDownStateOn    = False
@@ -89,6 +98,8 @@ class RepShip(Representation):
     _headingRightStateOn = False
     _powerUpStateOn      = False
     _powerDownStateOn    = False
+    
+    _mortar = None
     
     def __init__(self, pos=None,  hpr=None,  tag="", model='', parent=render):
         Representation.__init__(self, pos,  hpr, tag, model, parent)
@@ -111,6 +122,8 @@ class RepShip(Representation):
         Event.Dispatcher().register(self, 'E_Key_PageDown-down',   self.setPowerDownOn)
         Event.Dispatcher().register(self, 'E_Key_PageDown-up',     self.setPowerDownOff)
         
+        Event.Dispatcher().register(self, 'E_Key_Fire',            self.fire)
+        
         taskMgr.add(self.setGun, 'Gun Update Task')
         self.showInfo(init=True)
         
@@ -132,7 +145,13 @@ class RepShip(Representation):
                                          pos = (-1.30, 0.79),
                                          scale = 0.05,
                                          align = TextNode.ALeft)
-        
+
+    def activate(self):
+       self._active = True
+       
+    def deactivate(self):
+       self._active = False 
+    
     def selectMove(self):
         LOG.debug("[RepShip] Drawing move selector")
         # Draw movement radii
@@ -239,6 +258,54 @@ class RepShip(Representation):
     def setPowerDownOff(self, event):
         self._powerDownStateOn = False
         
+    def fire(self, event):
+        if (self._active):
+            print("FIRING ROCKETS!!!")
+        
+            self._mortar = loader.loadModelCopy("assets/models/mortar.x")
+            self._mortar.setScale(1)
+            self._mortar.setPos(0, 0, 0)
+            self._mortar.setHpr(self._gunHeading, self._gunPitch, 0)
+            self._mortar.reparentTo(self.model)
+            
+            self._gunPitchTheta = self._gunPitch * RAD_FACTOR
+            self._gunHeadingTheta = self._gunHeading * RAD_FACTOR
+            time_of_flight = (2 * math.sin(self._gunPitchTheta) * self._gunPower) / GRAV_ACCEL
+            
+            #print("RAD_FACTOR=%s"%RAD_FACTOR)
+            #print("_gunPitch=%s"%self._gunPitch)
+            #print("_gunTheta=%s"%self._gunTheta)
+            #print("time_of_flight=%s"%time_of_flight)
+            
+            mov = LerpFunc(self.lerpUpdate,
+                                   fromData=0,
+                                   toData=time_of_flight,
+                                   duration=3.0,
+                                   blendType='easeInOut',
+                                   extraArgs=[],
+                                   name = "Mortar parabola")
+            moveSequence=Sequence(mov, Func(self._mortar.removeNode))
+            moveSequence.start()
+        
+    def lerpUpdate(self, t):
+        # Update the position of the rocket using a parabolic equation for a parabola
+        # x(t) = v * cos(theta) * t
+        # y(t) = v * sin(theta) * t - (0.5 * g * t^2)
+        
+        # Calculate the distance of the trajectory - normally x
+        d = self._gunPower * math.sin(self._gunPitchTheta) * t
+        
+        # Split the distance into x and y components
+        x = d * math.sin(self._gunHeadingTheta)
+        y = d * math.cos(self._gunHeadingTheta)
+        
+        # Calculate the height of the trajectory - normally y
+        z = self._gunPower * math.cos(self._gunPitchTheta) * t - (0.5 * GRAV_ACCEL * math.pow(t, 2))
+        
+        self._mortar.setPos(x,y,z)
+        #print "(%s, %s, %s)"%(x, y, z)
+        return t
+        
 class BattleShip(RepShip):
     _power = 100
     
@@ -254,28 +321,9 @@ class BattleShip(RepShip):
         if self.aaLevel > 0:
             self.model.setAntialias(AntialiasAttrib.MMultisample, self.aaLevel)
         self.model.reparentTo(self.baseNode)
-        print (self.baseNode)
-        print (self.model)
+        
         #TESTING
         self.model.setColor(0.0, 0.3, 0.3)
         
-    def fireRockets(self, target):
-        print("FIRING ROCKETS!!!")
-        
-        self.modelRocket = loader.loadModelCopy("data/models/rocket.egg")
-        self.modelRocket.setScale(1)
-        self.modelRocket.setPos(0, 0, 0)
-        
-        currentHpr = self.model.getHpr()
-        self.modelRocket.setHpr(currentHpr)
-        self.modelRocket.reparentTo(self.model)
-        targetPos = self.model.getRelativePoint(render, target)
-        
-        #targetHpr = self.model.getHpr()
-        #self.model.setHpr(currentHpr) 
-        mov = LerpPosInterval(self.modelRocket, duration=3, pos = targetPos, #Vec3(10, 0, 0),
-                startPos = None, other = None, blendType = 'easeInOut',
-                bakeInStart = 1, fluid = 0, name = None)
-        moveSequence=Sequence(mov, Func(self.modelRocket.removeNode))
-        moveSequence.start()
+    
         

@@ -44,6 +44,8 @@ class World(DirectObject):
         s1 = BattleShip(parent=w.baseNode, pos=(25, 0, 0))
         s2 = BattleShip(parent=w.baseNode, pos=(-25, 0, 0))
         
+        s1.activate()
+        
         ########################################################################        
         
         # Camera
