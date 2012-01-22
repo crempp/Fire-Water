@@ -61,6 +61,7 @@ class CameraManager(DirectObject):
         # Factor used to convert mouse movement into world movement
         self.gutterdriveMouseFactor = 100
         self.panMouseFactor = 2000
+        self.zoomFactor = 3
         
     def startCamera(self):
         LOG.debug("Starting CameraManager")
@@ -100,7 +101,6 @@ class CameraManager(DirectObject):
         
         
         '''
-        
         base.camera.setPos(self.pos)
         base.camera.lookAt( self.target.getX(), self.target.getY(), self.target.getZ() )
         #LOG.debug("HPR = %s, POS= %s" % (base.camera.getHpr(), base.camera.getPos()))
@@ -136,7 +136,7 @@ class CameraManager(DirectObject):
         cameraVecNorm = cameraVec
         cameraVecNorm.normalize()
         
-        deltaVec      = cameraVecNorm
+        deltaVec      = cameraVecNorm * self.zoomFactor
         LOG.debug("self.pos = %s, deltaVec = %s" % (self.pos, deltaVec))
         
         if event.type == 'E_MouseWheel_Up':
@@ -159,26 +159,63 @@ class CameraManager(DirectObject):
             
             if self.dragging:
                 # If we are dragging spin the camera around the central point
-                # Vector from camera to target
+                
+                
+                # Create a vector from camera to target
                 cameraVec = self.target - self.pos
-                #LOG.debug("cameraVec = %s" % (cameraVec))
+                
+                # Calculate a distance factor that will effect the amoun which
+                # the the camera moves. This will allow the camera to move
+                # faster when we are further away from the target
                 distFact  = ( 1 / cameraVec.length() )
+                
+                #LOG.debug("cameraVec = %s" % (cameraVec))
                 #LOG.debug("cameraVec.length() = %s" % (cameraVec.length()))
                 #LOG.debug("distFact = %s" % (distFact))
-                
                 #LOG.debug("(mx, my) = (%s, %s)" % (self.mx, self.my))
                 #LOG.debug("mpos = (%s, %s)" % (self.mpos.getX(), self.mpos.getY()))
                 #LOG.debug("(mdx, mdy) = (%s, %s)" % ((self.mx - self.mpos.getX()), (self.my - self.mpos.getY())))
                 
-                dx = (self.mx - self.mpos.getX()) * self.panMouseFactor * distFact
-                dy = 0
-                dz = (self.my - self.mpos.getY()) * self.panMouseFactor * distFact
+                # Get the distance the mouse has moved
+                mouse_dx = (self.mx - self.mpos.getX()) * self.panMouseFactor * distFact
+                mouse_dy = (self.my - self.mpos.getY()) * self.panMouseFactor * distFact
+                
+                # Calculate the x-y plane components of the movement
+                plane_dist = math.sqrt(math.pow(cameraVec.length(),2) - math.pow(self.pos.getZ(), 2))
+                theta_0 = math.acos(self.pos.getX() / plane_dist)
+                theta_d = mouse_dx * 0.01
+                theta_n = theta_0 + theta_d
+                
+                if (not mouse_dx == 0):
+                    new_x = math.cos(theta_n) * plane_dist
+                    new_y = math.sin(theta_n) * plane_dist
+                    LOG.debug("theta = (%s, %s, %s)" % (theta_0, theta_d, theta_n))
+                    LOG.debug("p_0 = (%s, %s, %s)" % (self.pos.getX(), self.pos.getY(), self.pos.getZ()))
+                    LOG.debug("p_n = (%s, %s, %s)" % (new_x, new_y, self.pos.getZ() + mouse_dy))
+                else:
+                    new_x = self.pos.getX()
+                    new_y = self.pos.getY()
+                    LOG.debug("SKIP")
+                
+                
+                # Assemble a camera movement vector
+                # no - don't 
+                
+                #dx = mouse_dx
+                #dy = 0
+                #dz = mouse_dy
+                
+                
                 
                 #LOG.debug("D = (%s, %s, %s)" % (dx, dy, dz))
                 
-                self.pos.setX(self.pos.getX() + dx)
-                self.pos.setY(self.pos.getY() + dy)
-                self.pos.setZ(self.pos.getZ() + dz)
+                self.pos.setX(new_x)
+                self.pos.setY(new_y)
+                self.pos.setZ(self.pos.getZ() + mouse_dy)
+                
+                #self.pos.setX(self.pos.getX() + dx)
+                #self.pos.setY(self.pos.getY() + dy)
+                #self.pos.setZ(self.pos.getZ() + dz)
                 
                 self.updateCamera()
             
