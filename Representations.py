@@ -39,6 +39,7 @@ class Representation(object):
     entity = None
     foot    = 10
     aaLevel = 2
+    game = None
     
     def __init__(self,  pos=None,  hpr=None,  tag="", model='', parent=render):
         if pos != None:
@@ -70,6 +71,9 @@ class Representation(object):
     def select(self):
         '''Must be subclassed'''
         pass
+        
+    def setGame(self, game):
+        self.game = game
         
     def __repr__(self):
         return "<Rep: " + self.tag + ", pos=" + str(self.pos) + ">"
@@ -224,7 +228,7 @@ class RepShip(Representation):
             
             if updated:
                 self.showInfo()
-                print("(%s,%s,%s)"%(self._gunPitch, self._gunHeading, self._gunPower))
+                #print("(%s,%s,%s)"%(self._gunPitch, self._gunHeading, self._gunPower))
         
         return task.cont
             
@@ -268,23 +272,18 @@ class RepShip(Representation):
             self._mortar.setHpr(self._gunHeading, self._gunPitch, 0)
             self._mortar.reparentTo(self.model)
             
-            self._gunPitchTheta = self._gunPitch * RAD_FACTOR
+            self._gunPitchTheta = (math.pi / 2) - (self._gunPitch * RAD_FACTOR)
             self._gunHeadingTheta = self._gunHeading * RAD_FACTOR
-            time_of_flight = (2 * math.sin(self._gunPitchTheta) * self._gunPower) / GRAV_ACCEL
-            
-            #print("RAD_FACTOR=%s"%RAD_FACTOR)
-            #print("_gunPitch=%s"%self._gunPitch)
-            #print("_gunTheta=%s"%self._gunTheta)
-            #print("time_of_flight=%s"%time_of_flight)
+            time_of_flight = (2 * math.cos(self._gunPitchTheta) * self._gunPower) / GRAV_ACCEL
             
             mov = LerpFunc(self.lerpUpdate,
-                                   fromData=0,
-                                   toData=time_of_flight,
-                                   duration=3.0,
-                                   blendType='easeInOut',
-                                   extraArgs=[],
-                                   name = "Mortar parabola")
-            moveSequence=Sequence(mov, Func(self._mortar.removeNode))
+                           fromData=0,
+                           toData=time_of_flight,
+                           duration=3.0,
+                           blendType='easeInOut',
+                           extraArgs=[],
+                           name = "Mortar parabola")
+            moveSequence=Sequence(mov, Func(self._checkHit), Func(self._mortar.removeNode))
             moveSequence.start()
         
     def lerpUpdate(self, t):
@@ -305,12 +304,18 @@ class RepShip(Representation):
         self._mortar.setPos(x,y,z)
         #print "(%s, %s, %s)"%(x, y, z)
         return t
+    
+    def _checkHit(self):
+        print("Check hit %s"%(self._mortar.getPos()))
+        #self.game.checkHit(self._mortar.wrtReparentTo(render).getPos())
         
 class BattleShip(RepShip):
     _power = 100
     
     def __init__(self, pos=None,  hpr=None,  tag="", model='', parent=render):
         RepShip.__init__(self, pos, hpr, tag, model, parent)
+
+        
         
         self.model = loader.loadModelCopy("assets/models/ship_01.x")
         #self.model = loader.loadModelCopy("assets/models/heavy_cruiser.egg")
@@ -324,6 +329,5 @@ class BattleShip(RepShip):
         
         #TESTING
         self.model.setColor(0.0, 0.3, 0.3)
-        
     
         

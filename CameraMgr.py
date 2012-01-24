@@ -8,10 +8,13 @@ from pandac.PandaModules import Vec3
 from pandac.PandaModules import Vec2
 from pandac.PandaModules import Vec4
 from pandac.PandaModules import Mat4
+from pandac.PandaModules import Mat3
 
 # Game imports
 import Event
 from Representations import Representation
+
+RAD_FACTOR = (math.pi / 180)
 
 class CameraManager(DirectObject):
     ''' A class that controls the camera
@@ -61,10 +64,39 @@ class CameraManager(DirectObject):
         
         # Options
         self.gutterdrive = False
+        
         # Factor used to convert mouse movement into world movement
         self.gutterdriveMouseFactor = 100
         self.panMouseFactor = 2000
         self.zoomFactor = 3
+        
+        
+        # Build the camera rotation maticies
+        self.leftrightRotationDegrees = 0.5
+        self.updownRotationDegrees    = 2
+        
+        rSin = math.sin(self.leftrightRotationDegrees * RAD_FACTOR)
+        rCos = math.cos(self.leftrightRotationDegrees * RAD_FACTOR)
+        self.leftMatrix  = Mat3( rCos,  rSin,  0,
+                                -rSin,  rCos,  0,
+                                 0,     0,     1)
+        self.rightMatrix = Mat3( rCos, -rSin,  0,
+                                 rSin,  rCos,  0,
+                                 0,     0,     1)
+        rSin = math.sin(self.updownRotationDegrees * RAD_FACTOR)
+        rCos = math.cos(self.updownRotationDegrees * RAD_FACTOR)
+        self.upMatrix    = Mat3( rCos,  0,     -rSin,
+                                 0,     1,     0,
+                                 rSin,  0,     rCos)
+        self.downMatrix  = Mat3( rCos,  0,     rSin,
+                                 0,     1,     0,
+                                -rSin,  0,     rCos,)
+        #self.upMatrix    = Mat3( 1,     0,     0,
+        #                         0,     rCos, -rSin,
+        #                         0,     rSin,  rCos)
+        #self.downMatrix  = Mat3( 1,     0,     0,
+        #                         0,     rCos,  rSin,
+        #                         0,    -rSin,  rCos)
         
     def startCamera(self):
         LOG.debug("Starting CameraManager")
@@ -74,14 +106,6 @@ class CameraManager(DirectObject):
         Event.Dispatcher().register(self, 'E_Mouse_3_Up', self.stopDrag)
         Event.Dispatcher().register(self, 'E_MouseWheel_Up', self.adjustCamDist)
         Event.Dispatcher().register(self, 'E_MouseWheel_Down', self.adjustCamDist)
-        #Event.Dispatcher().register(self, 'E_Key_CameraUp', self.keyMove)
-        #Event.Dispatcher().register(self, 'E_Key_CameraUp-up', self.keyMove)
-        #Event.Dispatcher().register(self, 'E_Key_CameraDown', self.keyMove)
-        #Event.Dispatcher().register(self, 'E_Key_CameraDown-up', self.keyMove)
-        #Event.Dispatcher().register(self, 'E_Key_CameraLeft', self.keyMove)
-        #Event.Dispatcher().register(self, 'E_Key_CameraLeft-up', self.keyMove)
-        #Event.Dispatcher().register(self, 'E_Key_CameraRight', self.keyMove)
-        #Event.Dispatcher().register(self, 'E_Key_CameraRight-up', self.keyMove)
         
         # Turn off default camera movement
         base.disableMouse()
@@ -89,11 +113,6 @@ class CameraManager(DirectObject):
         # Set camera properties
         base.camLens.setFov(self.fov)
         base.camera.setPos(self.pos)
-        
-        # The lookAt camera method doesn't work right at the moment.
-        # This should be moved into a seperate method of Camera Manager anyway
-        # so we can set this to the players start pos.
-        #base.camera.lookAt(self.lookAt)
         
         self.updateCamera()
         
@@ -105,8 +124,8 @@ class CameraManager(DirectObject):
         
         '''
         base.camera.setPos(self.pos)
+        LOG.debug("%s"%(self.target))
         base.camera.lookAt( self.target.getX(), self.target.getY(), self.target.getZ() )
-        #LOG.debug("HPR = %s, POS= %s" % (base.camera.getHpr(), base.camera.getPos()))
         
         
     def setTarget(self,x,y = None, z = None):
@@ -140,15 +159,12 @@ class CameraManager(DirectObject):
         cameraVecNorm.normalize()
         
         deltaVec      = cameraVecNorm * self.zoomFactor
-        LOG.debug("self.pos = %s, deltaVec = %s" % (self.pos, deltaVec))
         
         if event.type == 'E_MouseWheel_Up':
             self.pos = self.pos + deltaVec
         elif event.type == 'E_MouseWheel_Down':
             self.pos = self.pos - deltaVec
             
-        #LOG.debug("self.camDist = %s" % (self.camDist))
-        #self.camDist = self.camDist * aspect
         self.resetMousePos()
         self.updateCamera()
         
@@ -163,98 +179,31 @@ class CameraManager(DirectObject):
             if self.dragging:
                 # If we are dragging spin the camera around the central point
                 
-                
-                # Create a vector from camera to target
+                # The following will not be needed if I get the z-axis rotation
+                # matrix to work
                 cameraVec = self.target - self.pos
-                
-                # Calculate a distance factor that will effect the amoun which
-                # the the camera moves. This will allow the camera to move
-                # faster when we are further away from the target
                 distFact  = ( 1 / cameraVec.length() )
                 
-                #LOG.debug("cameraVec = %s" % (cameraVec))
-                #LOG.debug("cameraVec.length() = %s" % (cameraVec.length()))
-                #LOG.debug("distFact = %s" % (distFact))
-                #LOG.debug("(mx, my) = (%s, %s)" % (self.mx, self.my))
-                #LOG.debug("mpos = (%s, %s)" % (self.mpos.getX(), self.mpos.getY()))
-                #LOG.debug("(mdx, mdy) = (%s, %s)" % ((self.mx - self.mpos.getX()), (self.my - self.mpos.getY())))
-                
                 # Get the distance the mouse has moved
-                mouse_dx = (self.mx - self.mpos.getX()) * self.panMouseFactor * distFact
+                mouse_dx = (self.mx - self.mpos.getX())
                 mouse_dy = (self.my - self.mpos.getY()) * self.panMouseFactor * distFact
                 
-                # Calculate the x-y plane components of the movement
-                tx = self.pos.getX() - self.target.getX()
-                ty = self.pos.getY() - self.target.getY()
-                tz = self.pos.getZ() - self.target.getZ()
-                
-                cam_dist = math.sqrt(math.pow(tx, 2) +
-                                     math.pow(ty, 2) +
-                                     math.pow(tz, 2))
-                #plane_dist = math.sqrt(math.pow(cameraVec.length(),2) - math.pow(self.pos.getZ(), 2))
-                
-                #plane_dist = math.sqrt(math.pow(cam_dist, 2) - math.pow(self.pos.getZ(), 2))
-                #theta_0 = math.acos(self.pos.getX() / plane_dist)
-                #theta_d = mouse_dx * 0.01
-                #theta_n = theta_0 + theta_d
-                
-                # Now lets try rotation matrix
-                #            ( cos q  sin q  0  0)
-                #   Rz (q) = (-sin q  cos q  0  0)
-                #            ( 0        0    1  0)
-                #            ( 0        0    0  1)
-                #m = Mat4( 0.03, 0.99, 0, 0,
-                #         -0.99, 0.03, 0, 0,
-                #             0,    0, 1, 0,
-                #             0,    0, 0, 1)
-                m_left = Mat4( 0.99, 0.03, 0, 0,
-                              -0.03, 0.99, 0, 0,
-                                  0,    0, 1, 0,
-                                  0,    0, 0, 1)
-                m_right = Mat4( 0.99, 0.03, 0, 0,
-                               -0.03, 0.99, 0, 0,
-                                   0,    0, 1, 0,
-                                   0,    0, 0, 1)
-                
                 if (not mouse_dx == 0):
-                    #new_x = math.cos(theta_n) * plane_dist
-                    #new_y = math.sin(theta_n) * plane_dist
-                    
-                    curPos = Vec4(self.pos.getX(), self.pos.getY(), self.pos.getZ(),0)
-                    
-                    newPos = m.xformVec(self.pos)
-                    
-                    LOG.debug("curPos = %s" % (curPos))
-                    LOG.debug("m = \n%s" % (m))
-                    LOG.debug("newPos = %s" % (newPos))
+                    if (mouse_dx > 0):
+                        newPos = self.leftMatrix.xformVec(self.pos)
+                    else:
+                        newPos = self.rightMatrix.xformVec(self.pos)
                     
                     self.pos.setX(newPos.getX())
                     self.pos.setY(newPos.getY())
+                if (not mouse_dy == 0):
+                    #if (mouse_dy > 0):
+                    #    newPos = self.upMatrix.xformVec(self.pos)
+                    #else:
+                    #    newPos = self.downMatrix.xformVec(self.pos)
+                    #LOG.debug("newPos = %s" % (newPos))
+                    #self.pos.setZ(newPos.getZ())
                     self.pos.setZ(self.pos.getZ() + mouse_dy)
-                    
-                    #LOG.debug("cam_dist = %s" % (cameraVec.length()))
-                    #LOG.debug("plane_dist = %s" % (plane_dist))
-                    #LOG.debug("theta = (%s, %s, %s)" % (theta_0, theta_d, theta_n))
-                    #LOG.debug("p_0 = (%s, %s, %s)" % (self.pos.getX(), self.pos.getY(), self.pos.getZ()))
-                    #LOG.debug("p_n = (%s, %s, %s)" % (new_x, new_y, self.pos.getZ() + mouse_dy))
-                else:
-                    new_x = self.pos.getX()
-                    new_y = self.pos.getY()
-                    #LOG.debug("SKIP")
-                # Assemble a camera movement vector
-                # no - don't 
-                
-                #LOG.debug("D = (%s, %s, %s)" % (dx, dy, dz))
-                
-                #self.pos.setX(new_x)
-                #self.pos.setY(new_y)
-                #self.pos.setZ(self.pos.getZ() + mouse_dy)
-                
-                #self.pos.setZ(self.pos.getZ())
-                
-                #self.pos.setX(self.pos.getX() + dx)
-                #self.pos.setY(self.pos.getY() + dy)
-                #self.pos.setZ(self.pos.getZ() + dz)
                 
                 self.updateCamera()
             
@@ -321,7 +270,6 @@ class CameraManager(DirectObject):
             self.mx = self.mpos.getX()
             self.my = self.mpos.getY()
             
-            #LOG.debug("(mx, my) = (%s, %s)" % (self.mx, self.my))
         return task.cont
 
     def resetMousePos(self):
@@ -329,20 +277,3 @@ class CameraManager(DirectObject):
         self.mx = self.mpos.getX()
         self.my = self.mpos.getY()
     
-    #def keyMove(self, event):
-    #    if event.type == 'E_Key_CameraUp':
-    #        self.movingUp = True
-    #    elif event.type =='E_Key_CameraUp-up':
-    #        self.movingUp = False
-    #    elif event.type =='E_Key_CameraDown':
-    #        self.movingDown = True
-    #    elif event.type =='E_Key_CameraDown-up':
-    #        self.movingDown = False
-    #    elif event.type =='E_Key_CameraLeft':
-    #        self.movingLeft = True
-    #    elif event.type =='E_Key_CameraLeft-up':
-    #        self.movingLeft = False
-    #    elif event.type =='E_Key_CameraRight':
-    #        self.movingRight = True
-    #    elif event.type =='E_Key_CameraRight-up':
-    #        self.movingRight = False
