@@ -6,6 +6,8 @@ import math
 from direct.showbase.DirectObject import DirectObject
 from pandac.PandaModules import Vec3
 from pandac.PandaModules import Vec2
+from pandac.PandaModules import Vec4
+from pandac.PandaModules import Mat4
 
 # Game imports
 import Event
@@ -16,6 +18,7 @@ class CameraManager(DirectObject):
         
         Internally positions must be represented by Vec3
     '''
+    
     def __init__(self, fov=60.0, pos=(-10,-100,25), lookAt=(0,0,0)):
         
         # Camera field of view        
@@ -181,37 +184,73 @@ class CameraManager(DirectObject):
                 mouse_dy = (self.my - self.mpos.getY()) * self.panMouseFactor * distFact
                 
                 # Calculate the x-y plane components of the movement
-                plane_dist = math.sqrt(math.pow(cameraVec.length(),2) - math.pow(self.pos.getZ(), 2))
-                theta_0 = math.acos(self.pos.getX() / plane_dist)
-                theta_d = mouse_dx * 0.01
-                theta_n = theta_0 + theta_d
+                tx = self.pos.getX() - self.target.getX()
+                ty = self.pos.getY() - self.target.getY()
+                tz = self.pos.getZ() - self.target.getZ()
+                
+                cam_dist = math.sqrt(math.pow(tx, 2) +
+                                     math.pow(ty, 2) +
+                                     math.pow(tz, 2))
+                #plane_dist = math.sqrt(math.pow(cameraVec.length(),2) - math.pow(self.pos.getZ(), 2))
+                
+                #plane_dist = math.sqrt(math.pow(cam_dist, 2) - math.pow(self.pos.getZ(), 2))
+                #theta_0 = math.acos(self.pos.getX() / plane_dist)
+                #theta_d = mouse_dx * 0.01
+                #theta_n = theta_0 + theta_d
+                
+                # Now lets try rotation matrix
+                #            ( cos q  sin q  0  0)
+                #   Rz (q) = (-sin q  cos q  0  0)
+                #            ( 0        0    1  0)
+                #            ( 0        0    0  1)
+                #m = Mat4( 0.03, 0.99, 0, 0,
+                #         -0.99, 0.03, 0, 0,
+                #             0,    0, 1, 0,
+                #             0,    0, 0, 1)
+                m_left = Mat4( 0.99, 0.03, 0, 0,
+                              -0.03, 0.99, 0, 0,
+                                  0,    0, 1, 0,
+                                  0,    0, 0, 1)
+                m_right = Mat4( 0.99, 0.03, 0, 0,
+                               -0.03, 0.99, 0, 0,
+                                   0,    0, 1, 0,
+                                   0,    0, 0, 1)
                 
                 if (not mouse_dx == 0):
-                    new_x = math.cos(theta_n) * plane_dist
-                    new_y = math.sin(theta_n) * plane_dist
-                    LOG.debug("theta = (%s, %s, %s)" % (theta_0, theta_d, theta_n))
-                    LOG.debug("p_0 = (%s, %s, %s)" % (self.pos.getX(), self.pos.getY(), self.pos.getZ()))
-                    LOG.debug("p_n = (%s, %s, %s)" % (new_x, new_y, self.pos.getZ() + mouse_dy))
+                    #new_x = math.cos(theta_n) * plane_dist
+                    #new_y = math.sin(theta_n) * plane_dist
+                    
+                    curPos = Vec4(self.pos.getX(), self.pos.getY(), self.pos.getZ(),0)
+                    
+                    newPos = m.xformVec(self.pos)
+                    
+                    LOG.debug("curPos = %s" % (curPos))
+                    LOG.debug("m = \n%s" % (m))
+                    LOG.debug("newPos = %s" % (newPos))
+                    
+                    self.pos.setX(newPos.getX())
+                    self.pos.setY(newPos.getY())
+                    self.pos.setZ(self.pos.getZ() + mouse_dy)
+                    
+                    #LOG.debug("cam_dist = %s" % (cameraVec.length()))
+                    #LOG.debug("plane_dist = %s" % (plane_dist))
+                    #LOG.debug("theta = (%s, %s, %s)" % (theta_0, theta_d, theta_n))
+                    #LOG.debug("p_0 = (%s, %s, %s)" % (self.pos.getX(), self.pos.getY(), self.pos.getZ()))
+                    #LOG.debug("p_n = (%s, %s, %s)" % (new_x, new_y, self.pos.getZ() + mouse_dy))
                 else:
                     new_x = self.pos.getX()
                     new_y = self.pos.getY()
-                    LOG.debug("SKIP")
-                
-                
+                    #LOG.debug("SKIP")
                 # Assemble a camera movement vector
                 # no - don't 
                 
-                #dx = mouse_dx
-                #dy = 0
-                #dz = mouse_dy
-                
-                
-                
                 #LOG.debug("D = (%s, %s, %s)" % (dx, dy, dz))
                 
-                self.pos.setX(new_x)
-                self.pos.setY(new_y)
-                self.pos.setZ(self.pos.getZ() + mouse_dy)
+                #self.pos.setX(new_x)
+                #self.pos.setY(new_y)
+                #self.pos.setZ(self.pos.getZ() + mouse_dy)
+                
+                #self.pos.setZ(self.pos.getZ())
                 
                 #self.pos.setX(self.pos.getX() + dx)
                 #self.pos.setY(self.pos.getY() + dy)
