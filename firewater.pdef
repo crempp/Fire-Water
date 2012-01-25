@@ -1,0 +1,11 @@
+from panda3d.core import loadPrcFile 
+from panda3d.core import Filename 
+
+class firewater(p3d): 
+    require("panda3d", "morepy")
+    config( 
+        version="0.1", 
+        display_name="Fire - Water")
+    module('core.*')
+    file("game.py") 
+    mainModule('main', filename=Filename('game.py')) 
