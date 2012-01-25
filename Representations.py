@@ -21,6 +21,7 @@ from pandac.PandaModules import Vec2
 from pandac.PandaModules import Vec3
 from pandac.PandaModules import Vec4
 from pandac.PandaModules import TextNode
+from pandac.PandaModules import BillboardEffect
 from direct.task import Task
 from direct.gui.OnscreenText import OnscreenText
 
@@ -90,9 +91,12 @@ class RepShip(Representation):
     _headingInc = 1
     _powerInc   = 1
     
+    #_gunPitch   = 45
+    #_gunHeading = 0
+    #_gunPower   = 50
     _gunPitch   = 45
-    _gunHeading = 0
-    _gunPower   = 50
+    _gunHeading = 276
+    _gunPower   = 28
     _gunTheta   = 0    
     _gunHeadingTheta =0
     
@@ -203,7 +207,7 @@ class RepShip(Representation):
         
     def setGun(self, task):
         # Only run once every 30 frames
-        if ((task.frame % 30) == 0):
+        if ((task.frame % 15) == 0):
             updated = False
             if self._pitchUpStateOn:
                 self._gunPitch = min(90, self._gunPitch + self._pitchInc)
@@ -228,7 +232,6 @@ class RepShip(Representation):
             
             if updated:
                 self.showInfo()
-                #print("(%s,%s,%s)"%(self._gunPitch, self._gunHeading, self._gunPower))
         
         return task.cont
             
@@ -266,7 +269,7 @@ class RepShip(Representation):
         if (self._active):
             print("FIRING ROCKETS!!!")
         
-            self._mortar = loader.loadModelCopy("assets/models/mortar.x")
+            self._mortar = loader.loadModel("assets/models/mortar")
             self._mortar.setScale(1)
             self._mortar.setPos(0, 0, 0)
             self._mortar.setHpr(self._gunHeading, self._gunPitch, 0)
@@ -276,10 +279,12 @@ class RepShip(Representation):
             self._gunHeadingTheta = self._gunHeading * RAD_FACTOR
             time_of_flight = (2 * math.cos(self._gunPitchTheta) * self._gunPower) / GRAV_ACCEL
             
+            duration = time_of_flight / 2
+            
             mov = LerpFunc(self.lerpUpdate,
                            fromData=0,
                            toData=time_of_flight,
-                           duration=3.0,
+                           duration=duration,
                            blendType='easeInOut',
                            extraArgs=[],
                            name = "Mortar parabola")
@@ -305,22 +310,66 @@ class RepShip(Representation):
         #print "(%s, %s, %s)"%(x, y, z)
         return t
     
+    def explode(self):
+        # This is stolen from the Texture-Swapping sample
+        self.expPlane = loader.loadModel('assets/models/plane')  #load the object
+        self.expPlane.reparentTo(self.baseNode)                  #reparent to render
+        self.expPlane.setTransparency(1)                         #enable transparency
+        
+        self.expPlane.setScale(3)
+        
+        self.expPlane.setBin("fixed", 40)
+        self.expPlane.setDepthTest(False)
+        self.expPlane.setDepthWrite(False)
+        
+        #load the texture movie
+        self.expTexs = self.loadTextureMovie(51, 'assets/textures/explosion/explosion',
+                                             'png', padding = 4)
+    
+        #create the animation task
+        self.expTaskCounter = 0
+        self.expTask = taskMgr.add(self.textureMovie, "explosionTask")
+        self.expTask.fps = 30                                 #set framerate
+        self.expTask.obj = self.expPlane                      #set object
+        self.expTask.textures = self.expTexs                  #set texture list
+    
+        #This create the "billboard" effect that will rotate the object soremove that it
+        #is always rendered as facing the eye (camera)
+        self.expPlane.node().setEffect(BillboardEffect.makePointEye())
+    
     def _checkHit(self):
+        relativeHitPosition = self._mortar.getPos()
+        worldPos = render.getRelativePoint(self.model, relativeHitPosition)
         print("Check hit %s"%(self._mortar.getPos()))
-        #self.game.checkHit(self._mortar.wrtReparentTo(render).getPos())
+        print("in the world %s"%(worldPos))
+        self.game.checkHit(worldPos)
+    
+    #This function is run every frame by our tasks to animate the textures
+    def textureMovie(self, task):
+        currentFrame = int(task.time * task.fps)
+        
+        task.obj.setTexture(task.textures[currentFrame % len(task.textures)], 1)
+        self.expTaskCounter += 1
+        
+        if (self.expTaskCounter < 400):
+            return Task.cont
+        else:
+            self.expPlane.removeNode()
+            return Task.done
+    
+    def loadTextureMovie(self, frames, name, suffix, padding = 1):
+        return [loader.loadTexture((name+"%0"+str(padding)+"d."+suffix) % i) 
+            for i in range(frames)]
         
 class BattleShip(RepShip):
     _power = 100
     
     def __init__(self, pos=None,  hpr=None,  tag="", model='', parent=render):
         RepShip.__init__(self, pos, hpr, tag, model, parent)
-
         
-        
-        self.model = loader.loadModelCopy("assets/models/ship_01.x")
-        #self.model = loader.loadModelCopy("assets/models/heavy_cruiser.egg")
-        self.model.setScale(0.5)
-        self.model.setPos(self.pos)
+        # NOTICE: the position is applied to baseNode so do not apply
+        # positioning here
+        self.model = loader.loadModel("assets/models/ship_01")
         self.model.setHpr(self.hpr)
         self.model.setTag('SelectorTag', self.tag)
         if self.aaLevel > 0:

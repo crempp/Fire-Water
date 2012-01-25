@@ -40,7 +40,7 @@ class CameraManager(DirectObject):
         camVec = (self.target - self.pos)
         self.camDist = camVec.length()
 
-        LOG.debug("self.pos = %s, self.target = %s, self.camDist = %s" % (self.pos, self.target, self.camDist))        
+        #LOG.debug("self.pos = %s, self.target = %s, self.camDist = %s" % (self.pos, self.target, self.camDist))        
         
         # Camera state variables
         self.movingUp    = False
@@ -124,12 +124,12 @@ class CameraManager(DirectObject):
         
         '''
         base.camera.setPos(self.pos)
-        LOG.debug("%s"%(self.target))
+        #LOG.debug("%s"%(self.target))
         base.camera.lookAt( self.target.getX(), self.target.getY(), self.target.getZ() )
         
         
     def setTarget(self,x,y = None, z = None):
-        print (x.pos)
+        #print (x.pos)
         if (issubclass(x.__class__, Representation)):
             nx = x.pos[0]
             ny = x.pos[1]
