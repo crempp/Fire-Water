@@ -27,9 +27,11 @@ from direct.gui.OnscreenText import OnscreenText
 
 # Game imports
 import Event
+from GeomObjects import MoveCursor, SelectionIndicator
 
 GRAV_ACCEL = 9.80665
 RAD_FACTOR = (math.pi / 180)
+DEG_FACTOR = (180 / math.pi)
 
 class Representation(object):
     '''An abstract class that represents any logical entity in the game.'''
@@ -82,10 +84,13 @@ class Representation(object):
 class RepShip(Representation):
     _active = False
     
-    _moveRadius = 100
+    moveRadius = 20
     
     _selectindicator = None
     _movecursor = None
+
+    _damage      = 0
+    _damageLimit = 100
     
     _pitchInc   = 1
     _headingInc = 1
@@ -106,6 +111,9 @@ class RepShip(Representation):
     _headingRightStateOn = False
     _powerUpStateOn      = False
     _powerDownStateOn    = False
+    
+    _selectMoveState = False
+    _movingState     = False
     
     _mortar = None
     
@@ -131,8 +139,11 @@ class RepShip(Representation):
         Event.Dispatcher().register(self, 'E_Key_PageDown-up',     self.setPowerDownOff)
         
         Event.Dispatcher().register(self, 'E_Key_Fire',            self.fire)
+        Event.Dispatcher().register(self, 'E_Key_Move',            self.toggleSelectMoveState)
+        Event.Dispatcher().register(self, 'E_Mouse_1',             self.move)
         
         taskMgr.add(self.setGun, 'Gun Update Task')
+        
         self.showInfo(init=True)
         
     def showInfo(self, init=False):
@@ -140,6 +151,7 @@ class RepShip(Representation):
             self._pitchText.destroy()
             self._headingText.destroy()
             self._powerText.destroy()
+            self._damageText.destroy()
         
         self._pitchText   = OnscreenText(text = 'Pitch: %s'%self._gunPitch,
                                          pos = (-1.30, 0.95),
@@ -153,6 +165,10 @@ class RepShip(Representation):
                                          pos = (-1.30, 0.79),
                                          scale = 0.05,
                                          align = TextNode.ALeft)
+        self._damageText  = OnscreenText(text = 'Damage: %s'%self._damage,
+                                         pos = (-1.30, 0.71),
+                                         scale = 0.05,
+                                         align = TextNode.ALeft)
 
     def activate(self):
        self._active = True
@@ -160,53 +176,51 @@ class RepShip(Representation):
     def deactivate(self):
        self._active = False 
     
+    def toggleSelectMoveState(self, event):
+        if self._active and not self._selectMoveState:
+            LOG.debug("Move select on")
+            self._selectMoveState = True
+            self.selectMove()
+        elif self._active and self._selectMoveState:
+            LOG.debug("Move select off")
+            self._selectMoveState = False
+            self.unselectMove()
+            
     def selectMove(self):
-        LOG.debug("[RepShip] Drawing move selector")
-        # Draw movement radii
-        self._selectindicator = GeomObjects.SelectionIndicator(self.model, size=self.foot)
-        self._movecursor   = GeomObjects.MoveCursor(self.model, self.entity, foot=self.foot)
+        self._movecursor.startDrawing()
         
     def unselectMove(self):
-        if self._selectindicator is not None:
-            self._selectindicator.removeNode()
-        if self._movecursor is not None:
-            self._movecursor.removeNode()
-        del(self._selectindicator)
-        del(self._movecursor)
-        
-    def selectAttack(self):
-        self._attackcursor = GeomObjects.AttackCursor(self.model, self.entity, foot=self.foot)
-        
-    def unselectAttack(self):
-        if self._attackcursor is not None:
-            self._attackcursor.removeNode()
-        del(self._attackcursor)
-        
-    def move(self, pos):
-        # Get direction to head
-        currentHpr = self.model.getHpr()
-        self.model.lookAt(pos.getX(), pos.getY(), pos.getZ())
-        targetHpr = self.model.getHpr()
-        self.model.setHpr(currentHpr) 
-        
-        # Rotate to heading
-        rot = LerpHprInterval(self.model, duration=1, hpr = targetHpr,
-                other = None, blendType = 'easeInOut', bakeInStart = 1,
-                fluid = 0, name = None)
-        # Move
-        mov = LerpPosInterval(self.model, duration=3,   pos = pos, #Vec3(10, 0, 0),
-                startPos = None, other = None, blendType = 'easeInOut',
-                bakeInStart = 1, fluid = 0, name = None)
-        # Level off (pitch = 0)
-        lev = LerpHprInterval(self.model,   duration=0.7, hpr = Vec3(targetHpr.getX(), 0, 0),
-                other = None, blendType = 'easeInOut', bakeInStart = 1,
-                fluid = 0, name = None)
-        moveSequence=Sequence(Func(self.fireEngines), rot, mov, lev, Func(self.killEngines))
-        moveSequence.start()
-        self.pos = pos
+        self._movecursor.stopDrawing()
+    
+    def move(self, event):
+        if self._active and self._selectMoveState:
+            pos = self._movecursor.getPosition()
+            myRelPos = render.getRelativePoint(self.baseNode, pos)
+            print("myRelPos=%s"%myRelPos)
+            
+            self._selectMoveState = False
+            self.unselectMove()
+            
+            # Get direction to head
+            currentHpr = self.baseNode.getHpr()
+            self.baseNode.lookAt(pos.getX(), pos.getY(), pos.getZ())
+            targetHpr = self.baseNode.getHpr()
+            self.baseNode.setHpr(currentHpr) 
+            
+            # Rotate to heading
+            rot = LerpHprInterval(self.baseNode, duration=1, hpr = targetHpr,
+                    other = None, blendType = 'easeInOut', bakeInStart = 1,
+                    fluid = 0, name = None)
+            # Move
+            mov = LerpPosInterval(self.baseNode, duration=3,   pos = myRelPos, #Vec3(10, 0, 0),
+                    startPos = None, other = None, blendType = 'easeInOut',
+                    bakeInStart = 1, fluid = 0, name = None)
+            moveSequence=Sequence(rot, mov)
+            moveSequence.start()
+            self.pos = pos
         
     def setGun(self, task):
-        # Only run once every 30 frames
+        # Only run once every 15 frames
         if ((task.frame % 15) == 0):
             updated = False
             if self._pitchUpStateOn:
@@ -267,13 +281,11 @@ class RepShip(Representation):
         
     def fire(self, event):
         if (self._active):
-            print("FIRING ROCKETS!!!")
-        
             self._mortar = loader.loadModel("assets/models/mortar")
             self._mortar.setScale(1)
             self._mortar.setPos(0, 0, 0)
             self._mortar.setHpr(self._gunHeading, self._gunPitch, 0)
-            self._mortar.reparentTo(self.model)
+            self._mortar.reparentTo(self.baseNode)
             
             self._gunPitchTheta = (math.pi / 2) - (self._gunPitch * RAD_FACTOR)
             self._gunHeadingTheta = self._gunHeading * RAD_FACTOR
@@ -297,17 +309,26 @@ class RepShip(Representation):
         # y(t) = v * sin(theta) * t - (0.5 * g * t^2)
         
         # Calculate the distance of the trajectory - normally x
-        d = self._gunPower * math.sin(self._gunPitchTheta) * t
+        d0 = self._gunPower * math.sin(self._gunPitchTheta) * (t - 0.1)
+        d  = self._gunPower * math.sin(self._gunPitchTheta) * t
         
         # Split the distance into x and y components
         x = d * math.sin(self._gunHeadingTheta)
         y = d * math.cos(self._gunHeadingTheta)
         
         # Calculate the height of the trajectory - normally y
-        z = self._gunPower * math.cos(self._gunPitchTheta) * t - (0.5 * GRAV_ACCEL * math.pow(t, 2))
+        z0 = self._gunPower * math.cos(self._gunPitchTheta) * (t - 0.1) - (0.5 * GRAV_ACCEL * (t - 0.1)**2)
+        z  = self._gunPower * math.cos(self._gunPitchTheta) * t - (0.5 * GRAV_ACCEL * t**2)
+        
+        # Calculate a new angle for the mortar
+        dx = abs(d - d0)
+        dy = z - z0       
+        if (abs(dx) > 0):
+            dTheta = math.atan(dy/dx)
+            self._mortar.setP(dTheta)
+            #print("(dtheta)=(%s)"%(dTheta * DEG_FACTOR))
         
         self._mortar.setPos(x,y,z)
-        #print "(%s, %s, %s)"%(x, y, z)
         return t
     
     def explode(self):
@@ -337,9 +358,18 @@ class RepShip(Representation):
         #is always rendered as facing the eye (camera)
         self.expPlane.node().setEffect(BillboardEffect.makePointEye())
     
+    def doDamage(self, dist):
+        damageFactor = 20
+        self._damage += round(dist * damageFactor)
+        
+        if (self._damage > self._damageLimit):
+            self.baseNode.removeNode()
+        
+        self.showInfo()
+    
     def _checkHit(self):
         relativeHitPosition = self._mortar.getPos()
-        worldPos = render.getRelativePoint(self.model, relativeHitPosition)
+        worldPos = render.getRelativePoint(self.baseNode, relativeHitPosition)
         print("Check hit %s"%(self._mortar.getPos()))
         print("in the world %s"%(worldPos))
         self.game.checkHit(worldPos)
@@ -362,7 +392,7 @@ class RepShip(Representation):
             for i in range(frames)]
         
 class BattleShip(RepShip):
-    _power = 100
+    _power = 20
     
     def __init__(self, pos=None,  hpr=None,  tag="", model='', parent=render):
         RepShip.__init__(self, pos, hpr, tag, model, parent)
@@ -375,6 +405,8 @@ class BattleShip(RepShip):
         if self.aaLevel > 0:
             self.model.setAntialias(AntialiasAttrib.MMultisample, self.aaLevel)
         self.model.reparentTo(self.baseNode)
+        
+        self._movecursor = MoveCursor(self.baseNode, self, foot=1)
         
         #TESTING
         self.model.setColor(0.0, 0.3, 0.3)
