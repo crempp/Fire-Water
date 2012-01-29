@@ -32,6 +32,10 @@ EVENTS = ['E_All',
           'E_Key_Move',
           'E_Key_Fire',
           'E_Key_Exit',
+          
+          'E_HitCheck',
+          'E_NewCameraTarget',
+          
           'E_StartGame',
           'E_EndTurn',
           'E_ExitGame',
@@ -39,7 +43,8 @@ EVENTS = ['E_All',
           
           'E_EntitySelect',
           'E_EntityUnSelect',
-          'E_UpdateGUI',]
+          'E_UpdateGUI',
+          ]
 
 class Event(object):
     '''
@@ -87,7 +92,7 @@ class Dispatcher(object):
                 listener is the object to register, event is the string representation
                 of the event and handler is the method to call when the event occurs.
                 TODO - Add support for handler arguments.'''
-        LOG.debug("  Dispatcher registering evenet %s to %s"%(event, str(listener)))
+        LOG.debug("  Dispatcher registering event %s to %s"%(event, str(listener)))
         if event in self._eventlist:
             self._listeners[event].append([listener,handler])
         else:

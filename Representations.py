@@ -370,9 +370,10 @@ class RepShip(Representation):
     def _checkHit(self):
         relativeHitPosition = self._mortar.getPos()
         worldPos = render.getRelativePoint(self.baseNode, relativeHitPosition)
-        print("Check hit %s"%(self._mortar.getPos()))
-        print("in the world %s"%(worldPos))
-        self.game.checkHit(worldPos)
+        
+        # Broadcast a hit
+        e = Event.Event('E_HitCheck', self, data=worldPos)
+        Event.Dispatcher().broadcast(e)
     
     #This function is run every frame by our tasks to animate the textures
     def textureMovie(self, task):

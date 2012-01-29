@@ -106,6 +106,7 @@ class CameraManager(DirectObject):
         Event.Dispatcher().register(self, 'E_Mouse_3_Up', self.stopDrag)
         Event.Dispatcher().register(self, 'E_MouseWheel_Up', self.adjustCamDist)
         Event.Dispatcher().register(self, 'E_MouseWheel_Down', self.adjustCamDist)
+        Event.Dispatcher().register(self, 'E_NewCameraTarget', self.setTargetFromEvent)
         
         # Turn off default camera movement
         base.disableMouse()
@@ -127,7 +128,7 @@ class CameraManager(DirectObject):
         #LOG.debug("%s"%(self.target))
         base.camera.lookAt( self.target.getX(), self.target.getY(), self.target.getZ() )
         
-        
+    
     def setTarget(self,x,y = None, z = None):
         #print (x.pos)
         if (issubclass(x.__class__, Representation)):
@@ -144,6 +145,9 @@ class CameraManager(DirectObject):
         self.target.setZ(nz)
         
         self.updateCamera()
+    
+    def setTargetFromEvent(self, event):
+        self.setTarget(event.data)
         
     def startDrag(self, event):
         self.dragging=True

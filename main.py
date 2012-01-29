@@ -18,7 +18,6 @@ from Log import LogConsole
 from CameraMgr import CameraManager
 
 class World(DirectObject):
-    hitRadius = 3
     
     def __init__(self):
         # Setup logger
@@ -38,15 +37,26 @@ class World(DirectObject):
         
         self.gamePieces = []
         
+        self.gameMgr = GameManager()
+        
+        
         ########################################################################
         w = Water(boardNP)
+        
+        self.gameMgr.addPlayer(1, "Player 1")
+        self.gameMgr.addPlayer(2, "Player 2")
         
         s1 = BattleShip(parent=w.baseNode, pos=Vec3(50, 0, 0))
         s2 = BattleShip(parent=w.baseNode, pos=Vec3(-30, 10, 0))
         
+        self.gameMgr.addPlayerUnit(1, s1)
+        self.gameMgr.addPlayerUnit(2, s2)
+        
+        # move this to dispatcher
         s1.setGame(self)
         s2.setGame(self)
         
+        # move this to dispatcher
         s1.activate()
         
         self.gamePieces = [s1, s2]
@@ -59,25 +69,13 @@ class World(DirectObject):
         c.setTarget(s1)
         
         # Debugging
-        self.coordDebug3D()
-        self.coordDebug3D(s1.baseNode)
+        #self.coordDebug3D()
+        #self.coordDebug3D(s1.baseNode)
         #self.coordDebug2D()
         #print(s1.pos)
         #print(s1.model.getPos())
         
-    def checkHit(self, pos):
-        for s in self.gamePieces:
-            hitVec = pos - s.pos
-            dist   = hitVec.length()
-            
-            if (dist < self.hitRadius):
-                LOG.debug("Hit!!!!!!!!!!!!")
-                hitSequence=Sequence(Func(s.explode), Func(s.doDamage, dist))
-                hitSequence.start()
-            
-            LOG.debug("hit  = %s"%pos)
-            LOG.debug("ship = %s"%s.pos)
-            LOG.debug("dist = %s"%dist)
+    
     
     # Coord debug functions
     # From http://code.google.com/p/python-panda3d-examples/wiki/PandaCoords
@@ -117,18 +115,89 @@ class World(DirectObject):
         return text3d # return the NodePath for further use
         
 
-class TurnManager(object):
+class GameManager(object):
     _players = {}
-    def __init__(self, players):
-        Event.Dispatcher().register(self, 'E_Player_EndTurn',   self._nextTurn)
-        
-    def addPlayer(id, playerName):
-        pass
     
-    def _nextTurn(self, event):
-        pass
-
-
-
+    _activePlayer = None
+    _activeUnit   = 0
+    
+    _hitRadius = 3
+    
+    def __init__(self):
+        Event.Dispatcher().register(self, 'E_Player_EndTurn',   self._nextTurn)
+        Event.Dispatcher().register(self, 'E_HitCheck',         self._checkHit)
+        
+    def addPlayer(self, id, playerName):
+        
+        if (len(self._players) == 0):
+            self._activePlayer = id
+        
+        self._players[id] = {'name':  playerName,
+                             'units': []}
+        
+    def addPlayerUnit(self, id, unit):
+        self._players[id]['units'].append(unit)
+    
+    def _checkHit(self, event):
+        LOG.debug("GameManager:_checkhit")
+        shooter = event.source
+        hitPos  = event.data
+        print(self._players)
+        for id, p in self._players.items():
+            print("2")
+            for u in p['units']:
+                hitVec = hitPos - u.pos
+                dist   = hitVec.length()
+                
+                LOG.debug("%s is %s"%(u, dist))
+                
+                if (dist < self._hitRadius):
+                    LOG.debug("Hit!!!!!!!!!!!!")
+                    
+                    # Run the hit sequence
+                    hitSequence=Sequence(Func(u.explode),
+                                         Func(u.doDamage, dist),
+                                         Func(self._nextTurn))
+                    hitSequence.start()
+                    
+                    LOG.debug("hit  = %s"%hitPos)
+                    LOG.debug("ship = %s"%u.pos)
+                    LOG.debug("dist = %s"%dist)
+    
+    def _nextTurn(self):
+        currPlayer = self._players[self._activePlayer]
+        
+        # are there any more units left for the current player?
+        if (self._activeUnit < len(currPlayer['units']) - 1):
+            # next unit same player
+            LOG.debug("Switching from p%s u%s to u%s"%(self._activePlayer, self._activeUnit, self._activeUnit + 1))
+            
+            currPlayer['units'][self._activeUnit].deactivate()
+            self._activeUnit += 1
+            currPlayer['units'][self._activeUnit].activate()
+        else:
+            # lookup next player
+            numPlayers = len(self._players)
+            
+            playerIDList      = self._players.keys()
+            playerIDList.sort()
+            print(playerIDList)
+            activePlayerIndex = playerIDList.index(self._activePlayer)
+            nextPlayerIndex   = (activePlayerIndex + 1) % len(playerIDList)
+            nextPlayerID      = playerIDList[nextPlayerIndex]
+            
+            LOG.debug("Switching from p%s to p%s"%(self._activePlayer, nextPlayerID))
+            nextPlayer = self._players[nextPlayerID]
+            
+            self._activePlayer = nextPlayerID
+            currPlayer['units'][self._activeUnit].deactivate()
+            self._activeUnit = 0
+            nextPlayer['units'][self._activeUnit].activate()
+        
+        e = Event.Event('E_NewCameraTarget',
+                        self,
+                        data=self._players[self._activePlayer]['units'][self._activeUnit])
+        Event.Dispatcher().broadcast(e)
+            
 w = World()
 run()
