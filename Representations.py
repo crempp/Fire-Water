@@ -89,8 +89,8 @@ class RepShip(Representation):
     _selectindicator = None
     _movecursor = None
 
-    _damage      = 0
-    _damageLimit = 100
+    damage       = 0
+    damageLimit = 100
     
     _pitchInc   = 1
     _headingInc = 1
@@ -99,9 +99,9 @@ class RepShip(Representation):
     #_gunPitch   = 45
     #_gunHeading = 0
     #_gunPower   = 50
-    _gunPitch   = 45
-    _gunHeading = 276
-    _gunPower   = 28
+    gunPitch   = 45
+    gunHeading = 276
+    gunPower   = 28
     _gunTheta   = 0    
     _gunHeadingTheta =0
     
@@ -114,6 +114,9 @@ class RepShip(Representation):
     
     _selectMoveState = False
     _movingState     = False
+    
+    _hasMovedState = False
+    _hasFiredState = False
     
     _mortar = None
     
@@ -144,37 +147,15 @@ class RepShip(Representation):
         
         taskMgr.add(self.setGun, 'Gun Update Task')
         
-        self.showInfo(init=True)
-        
-    def showInfo(self, init=False):
-        if (not init):
-            self._pitchText.destroy()
-            self._headingText.destroy()
-            self._powerText.destroy()
-            self._damageText.destroy()
-        
-        self._pitchText   = OnscreenText(text = 'Pitch: %s'%self._gunPitch,
-                                         pos = (-1.30, 0.95),
-                                         scale = 0.05,
-                                         align = TextNode.ALeft)
-        self._headingText = OnscreenText(text = 'Heading: %s'%self._gunHeading,
-                                         pos = (-1.30, 0.87),
-                                         scale = 0.05,
-                                         align = TextNode.ALeft)
-        self._powerText   = OnscreenText(text = 'Power: %s'%self._gunPower,
-                                         pos = (-1.30, 0.79),
-                                         scale = 0.05,
-                                         align = TextNode.ALeft)
-        self._damageText  = OnscreenText(text = 'Damage: %s'%self._damage,
-                                         pos = (-1.30, 0.71),
-                                         scale = 0.05,
-                                         align = TextNode.ALeft)
-
-    def activate(self):
+    
+    def startTurn(self):
        self._active = True
+       self._hasMovedState = False
+       self._hasFiredState = False
+       Event.Dispatcher().broadcast(Event.Event('E_UnitInfoUpdate', self))
        
-    def deactivate(self):
-       self._active = False 
+    def endTurn(self):
+       self._active = False
     
     def toggleSelectMoveState(self, event):
         if self._active and not self._selectMoveState:
@@ -193,11 +174,15 @@ class RepShip(Representation):
         self._movecursor.stopDrawing()
     
     def move(self, event):
-        if self._active and self._selectMoveState:
+        if (self._active and self._selectMoveState and not self._hasFiredState and not self._hasMovedState):
+            # Set moved state
+            self._hasMovedState = True
+            
+            # Calculate position
             pos = self._movecursor.getPosition()
             myRelPos = render.getRelativePoint(self.baseNode, pos)
-            print("myRelPos=%s"%myRelPos)
             
+            # Turn off move cursor
             self._selectMoveState = False
             self.unselectMove()
             
@@ -215,7 +200,8 @@ class RepShip(Representation):
             mov = LerpPosInterval(self.baseNode, duration=3,   pos = myRelPos, #Vec3(10, 0, 0),
                     startPos = None, other = None, blendType = 'easeInOut',
                     bakeInStart = 1, fluid = 0, name = None)
-            moveSequence=Sequence(rot, mov)
+            e = Event.Event('E_Unit_EndTurn', self)
+            moveSequence=Sequence(rot, mov, Func(Event.Dispatcher().broadcast, e))
             moveSequence.start()
             self.pos = pos
         
@@ -224,28 +210,28 @@ class RepShip(Representation):
         if ((task.frame % 15) == 0):
             updated = False
             if self._pitchUpStateOn:
-                self._gunPitch = min(90, self._gunPitch + self._pitchInc)
+                self.gunPitch = min(90, self.gunPitch + self._pitchInc)
                 updated = True
             elif self._pitchDownStateOn:
-                self._gunPitch = max(0, self._gunPitch - self._pitchInc)
+                self.gunPitch = max(0, self.gunPitch - self._pitchInc)
                 updated = True
             
             if self._headingLeftStateOn:
-                self._gunHeading = (self._gunHeading + self._headingInc) % 360
+                self.gunHeading = (self.gunHeading + self._headingInc) % 360
                 updated = True
             elif self._headingRightStateOn:
-                self._gunHeading = (self._gunHeading - self._headingInc) % 360
+                self.gunHeading = (self.gunHeading - self._headingInc) % 360
                 updated = True
             
             if self._powerUpStateOn:
-                self._gunPower = min(self._power, self._gunPower + self._powerInc)
+                self.gunPower = min(self._power, self.gunPower + self._powerInc)
                 updated = True
             elif self._powerDownStateOn:
-                self._gunPower = max(0, self._gunPower - self._powerInc)
+                self.gunPower = max(0, self.gunPower - self._powerInc)
                 updated = True
             
             if updated:
-                self.showInfo()
+                Event.Dispatcher().broadcast(Event.Event('E_UnitInfoUpdate', self))
         
         return task.cont
             
@@ -280,16 +266,19 @@ class RepShip(Representation):
         self._powerDownStateOn = False
         
     def fire(self, event):
-        if (self._active):
+        if (self._active and not self._hasFiredState and not self._hasMovedState):
+            # Set fired state
+            self._hasFiredState = True
+            
             self._mortar = loader.loadModel("assets/models/mortar")
             self._mortar.setScale(1)
             self._mortar.setPos(0, 0, 0)
-            self._mortar.setHpr(self._gunHeading, self._gunPitch, 0)
+            self._mortar.setHpr(self.gunHeading, self.gunPitch, 0)
             self._mortar.reparentTo(self.baseNode)
             
-            self._gunPitchTheta = (math.pi / 2) - (self._gunPitch * RAD_FACTOR)
-            self._gunHeadingTheta = self._gunHeading * RAD_FACTOR
-            time_of_flight = (2 * math.cos(self._gunPitchTheta) * self._gunPower) / GRAV_ACCEL
+            self.gunPitchTheta = (math.pi / 2) - (self.gunPitch * RAD_FACTOR)
+            self._gunHeadingTheta = self.gunHeading * RAD_FACTOR
+            time_of_flight = (2 * math.cos(self._gunPitchTheta) * self.gunPower) / GRAV_ACCEL
             
             duration = time_of_flight / 2
             
@@ -300,7 +289,12 @@ class RepShip(Representation):
                            blendType='easeInOut',
                            extraArgs=[],
                            name = "Mortar parabola")
-            moveSequence=Sequence(mov, Func(self._checkHit), Func(self._mortar.removeNode))
+            
+            e = Event.Event('E_Unit_EndTurn', self)
+            moveSequence=Sequence(mov,
+                                  Func(self._checkHit),
+                                  Func(self._mortar.removeNode),
+                                  Func(Event.Dispatcher().broadcast, e))
             moveSequence.start()
         
     def lerpUpdate(self, t):
@@ -309,16 +303,16 @@ class RepShip(Representation):
         # y(t) = v * sin(theta) * t - (0.5 * g * t^2)
         
         # Calculate the distance of the trajectory - normally x
-        d0 = self._gunPower * math.sin(self._gunPitchTheta) * (t - 0.1)
-        d  = self._gunPower * math.sin(self._gunPitchTheta) * t
+        d0 = self.gunPower * math.sin(self._gunPitchTheta) * (t - 0.1)
+        d  = self.gunPower * math.sin(self._gunPitchTheta) * t
         
         # Split the distance into x and y components
         x = d * math.sin(self._gunHeadingTheta)
         y = d * math.cos(self._gunHeadingTheta)
         
         # Calculate the height of the trajectory - normally y
-        z0 = self._gunPower * math.cos(self._gunPitchTheta) * (t - 0.1) - (0.5 * GRAV_ACCEL * (t - 0.1)**2)
-        z  = self._gunPower * math.cos(self._gunPitchTheta) * t - (0.5 * GRAV_ACCEL * t**2)
+        z0 = self.gunPower * math.cos(self._gunPitchTheta) * (t - 0.1) - (0.5 * GRAV_ACCEL * (t - 0.1)**2)
+        z  = self.gunPower * math.cos(self._gunPitchTheta) * t - (0.5 * GRAV_ACCEL * t**2)
         
         # Calculate a new angle for the mortar
         dx = abs(d - d0)
@@ -326,7 +320,6 @@ class RepShip(Representation):
         if (abs(dx) > 0):
             dTheta = math.atan(dy/dx)
             self._mortar.setP(dTheta)
-            #print("(dtheta)=(%s)"%(dTheta * DEG_FACTOR))
         
         self._mortar.setPos(x,y,z)
         return t
@@ -360,9 +353,9 @@ class RepShip(Representation):
     
     def doDamage(self, dist):
         damageFactor = 20
-        self._damage += round(dist * damageFactor)
+        self.damage += round(dist * damageFactor)
         
-        if (self._damage > self._damageLimit):
+        if (self.damage > self.damageLimit):
             self.baseNode.removeNode()
         
         self.showInfo()
@@ -394,6 +387,7 @@ class RepShip(Representation):
         
 class BattleShip(RepShip):
     _power = 20
+    title = "Battle Ship"
     
     def __init__(self, pos=None,  hpr=None,  tag="", model='', parent=render):
         RepShip.__init__(self, pos, hpr, tag, model, parent)

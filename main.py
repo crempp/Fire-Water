@@ -39,6 +39,7 @@ class World(DirectObject):
         
         self.gameMgr = GameManager()
         
+        guiMgr = GuiManager()
         
         ########################################################################
         w = Water(boardNP)
@@ -57,7 +58,7 @@ class World(DirectObject):
         s2.setGame(self)
         
         # move this to dispatcher
-        s1.activate()
+        s1.startTurn()
         
         self.gamePieces = [s1, s2]
         
@@ -67,6 +68,7 @@ class World(DirectObject):
         c = CameraManager()
         c.startCamera()
         c.setTarget(s1)
+        
         
         # Debugging
         #self.coordDebug3D()
@@ -124,8 +126,8 @@ class GameManager(object):
     _hitRadius = 3
     
     def __init__(self):
-        Event.Dispatcher().register(self, 'E_Player_EndTurn',   self._nextTurn)
-        Event.Dispatcher().register(self, 'E_HitCheck',         self._checkHit)
+        Event.Dispatcher().register(self, 'E_Unit_EndTurn', self._nextTurn)
+        Event.Dispatcher().register(self, 'E_HitCheck',     self._checkHit)
         
     def addPlayer(self, id, playerName):
         
@@ -139,7 +141,6 @@ class GameManager(object):
         self._players[id]['units'].append(unit)
     
     def _checkHit(self, event):
-        LOG.debug("GameManager:_checkhit")
         shooter = event.source
         hitPos  = event.data
         print(self._players)
@@ -149,32 +150,23 @@ class GameManager(object):
                 hitVec = hitPos - u.pos
                 dist   = hitVec.length()
                 
-                LOG.debug("%s is %s"%(u, dist))
-                
                 if (dist < self._hitRadius):
-                    LOG.debug("Hit!!!!!!!!!!!!")
-                    
                     # Run the hit sequence
                     hitSequence=Sequence(Func(u.explode),
                                          Func(u.doDamage, dist),
                                          Func(self._nextTurn))
                     hitSequence.start()
-                    
-                    LOG.debug("hit  = %s"%hitPos)
-                    LOG.debug("ship = %s"%u.pos)
-                    LOG.debug("dist = %s"%dist)
     
-    def _nextTurn(self):
+    def _nextTurn(self, event):
         currPlayer = self._players[self._activePlayer]
-        
         # are there any more units left for the current player?
         if (self._activeUnit < len(currPlayer['units']) - 1):
             # next unit same player
             LOG.debug("Switching from p%s u%s to u%s"%(self._activePlayer, self._activeUnit, self._activeUnit + 1))
             
-            currPlayer['units'][self._activeUnit].deactivate()
+            currPlayer['units'][self._activeUnit].endTurn()
             self._activeUnit += 1
-            currPlayer['units'][self._activeUnit].activate()
+            currPlayer['units'][self._activeUnit].startTurn()
         else:
             # lookup next player
             numPlayers = len(self._players)
@@ -186,18 +178,78 @@ class GameManager(object):
             nextPlayerIndex   = (activePlayerIndex + 1) % len(playerIDList)
             nextPlayerID      = playerIDList[nextPlayerIndex]
             
-            LOG.debug("Switching from p%s to p%s"%(self._activePlayer, nextPlayerID))
             nextPlayer = self._players[nextPlayerID]
             
             self._activePlayer = nextPlayerID
-            currPlayer['units'][self._activeUnit].deactivate()
+            currPlayer['units'][self._activeUnit].endTurn()
             self._activeUnit = 0
-            nextPlayer['units'][self._activeUnit].activate()
+            nextPlayer['units'][self._activeUnit].startTurn()
         
         e = Event.Event('E_NewCameraTarget',
                         self,
                         data=self._players[self._activePlayer]['units'][self._activeUnit])
         Event.Dispatcher().broadcast(e)
+
+class GuiManager(object):
+    _playerText  = None
+    _pitchText   = None
+    _headingText = None
+    _powerText   = None
+    _damageText  = None
+    
+    
+    def __init__(self):
+        Event.Dispatcher().register(self, 'E_UnitInfoUpdate',   self.updateShipInfo)
+        Event.Dispatcher().register(self, 'E_TurnInfoUpdate',   self.updateShipInfo)
+        
+        self.updateShipInfo(None, True)
+        self.updateTurnInfo(None, True)
+    
+    def updateTurnInfo(self, event, init=False):
+        self._currPlayerText   = OnscreenText(text = 'Player 1',
+                                              pos = (1.00, 0.95),
+                                              scale = 0.05,
+                                              align = TextNode.ALeft)
+        self._turnNomText      = OnscreenText(text = 'Turn 1',
+                                              pos = (1.00, 0.87),
+                                              scale = 0.05,
+                                              align = TextNode.ALeft)
+    
+    def updateShipInfo(self, event, init=False):
+        if (not init):
+            self._pitchText.destroy()
+            self._headingText.destroy()
+            self._powerText.destroy()
+            self._damageText.destroy()
             
+            pitchNum   = event.source.gunPitch
+            headingNum = event.source.gunHeading
+            powerNum   = event.source.gunPower
+            damageNum  = event.source.damage
+            totalDamageNum = event.source.damageLimit
+        else:
+            pitchNum   = '-'
+            headingNum = '-'
+            powerNum   = '-'
+            damageNum  = '-'
+            totalDamageNum = '-'
+        
+        self._pitchText   = OnscreenText(text = 'Pitch: %s'%pitchNum,
+                                         pos = (-1.30, 0.95),
+                                         scale = 0.05,
+                                         align = TextNode.ALeft)
+        self._headingText = OnscreenText(text = 'Heading: %s'%headingNum,
+                                         pos = (-1.30, 0.87),
+                                         scale = 0.05,
+                                         align = TextNode.ALeft)
+        self._powerText   = OnscreenText(text = 'Power: %s'%powerNum,
+                                         pos = (-1.30, 0.79),
+                                         scale = 0.05,
+                                         align = TextNode.ALeft)
+        self._damageText  = OnscreenText(text = 'Damage: %s/%s'%(damageNum,totalDamageNum),
+                                         pos = (-1.30, 0.71),
+                                         scale = 0.05,
+                                         align = TextNode.ALeft)
+        
 w = World()
 run()

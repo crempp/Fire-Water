@@ -215,7 +215,7 @@ class MoveCursor(object):
                 self._moveLine.setVertex(1, endPos)
                 self._moveFootCircleNP.setPos(endPos)
                 #self._currentPos = self.parent.getRelativePoint(self.parent, endPos)
-                print("endPos=%s"%endPos)
+                #print("endPos=%s"%endPos)
                 #print("myRelPos=%s"%self._currentPos)
                 self._currentPos = endPos
                 

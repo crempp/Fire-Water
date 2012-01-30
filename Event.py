@@ -37,9 +37,12 @@ EVENTS = ['E_All',
           'E_NewCameraTarget',
           
           'E_StartGame',
+          'E_Unit_EndTurn',
           'E_EndTurn',
           'E_ExitGame',
-          'E_ExitProgram'
+          'E_ExitProgram',
+          
+          'E_UnitInfoUpdate',
           
           'E_EntitySelect',
           'E_EntityUnSelect',
