@@ -25,6 +25,8 @@ from pandac.PandaModules import BillboardEffect
 from direct.task import Task
 from direct.gui.OnscreenText import OnscreenText
 
+
+
 # Game imports
 import Event
 from GeomObjects import MoveCursor, SelectionIndicator
@@ -146,6 +148,7 @@ class RepShip(Representation):
         Event.Dispatcher().register(self, 'E_Mouse_1',             self.move)
         
         taskMgr.add(self.setGun, 'Gun Update Task')
+        
         
     
     def startTurn(self):
@@ -385,6 +388,7 @@ class RepShip(Representation):
         return [loader.loadTexture((name+"%0"+str(padding)+"d."+suffix) % i) 
             for i in range(frames)]
         
+        
 class BattleShip(RepShip):
     _power = 20
     title = "Battle Ship"
@@ -404,6 +408,6 @@ class BattleShip(RepShip):
         self._movecursor = MoveCursor(self.baseNode, self, foot=1)
         
         #TESTING
-        self.model.setColor(0.0, 0.3, 0.3)
+        self.model.setColor(0.0, 0.3, 0.3, 0.5)
     
         

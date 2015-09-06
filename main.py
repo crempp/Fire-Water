@@ -8,6 +8,16 @@ from pandac.PandaModules import PandaNode,Camera,TextNode
 from direct.gui.DirectGui import *
 from direct.interval.IntervalGlobal import *
 
+# For lights \/
+from panda3d.core import AmbientLight,DirectionalLight
+from pandac.PandaModules import Vec4
+
+# For glow
+from direct.filter.CommonFilters import CommonFilters
+from panda3d.core import Filename,Buffer,Shader
+from panda3d.core import LightRampAttrib
+from panda3d.core import ColorBlendAttrib
+
 from Water import Water
 from Representations import BattleShip
 
@@ -47,8 +57,8 @@ class World(DirectObject):
         self.gameMgr.addPlayer(1, "Player 1")
         self.gameMgr.addPlayer(2, "Player 2")
         
-        s1 = BattleShip(parent=w.baseNode, pos=Vec3(50, 0, 0))
-        s2 = BattleShip(parent=w.baseNode, pos=Vec3(-30, 10, 0))
+        s1 = BattleShip(parent=render, pos=Vec3(50, 0, 0))
+        s2 = BattleShip(parent=render, pos=Vec3(-30, 10, 0))
         
         self.gameMgr.addPlayerUnit(1, s1)
         self.gameMgr.addPlayerUnit(2, s2)
@@ -69,7 +79,106 @@ class World(DirectObject):
         c.startCamera()
         c.setTarget(s1)
         
+        ####LIGHTS#########################################################
+        dlight = DirectionalLight('dlight')
+        alight = AmbientLight('alight')
+        dlnp = render.attachNewNode(dlight) 
+        alnp = render.attachNewNode(alight)
+        dlight.setColor(Vec4(0.5, 0.5, 0.7, 1))
+        alight.setColor(Vec4(0.7, 0.7, 0.7, 1))
+        dlnp.setHpr(0, -60, 0) 
+        render.setLight(dlnp)
+        render.setLight(alnp)
         
+        # Glow test
+        #glowShader=loader.loadShader("shaders/glowShader.sha")
+        #
+        ## create the glow buffer. This buffer renders like a normal scene,
+        ## except that only the glowing materials should show up nonblack.
+        #glowBuffer=base.win.makeTextureBuffer("Glow scene", 512, 512)
+        #glowBuffer.setSort(-3)
+        #glowBuffer.setClearColor(Vec4(0,0,0,1))
+        #
+        ## We have to attach a camera to the glow buffer. The glow camera
+        ## must have the same frustum as the main camera. As long as the aspect
+        ## ratios match, the rest will take care of itself.
+        #glowCamera=base.makeCamera(glowBuffer, lens=base.cam.node().getLens())
+        #
+        ## Tell the glow camera to use the glow shader
+        #tempnode = NodePath(PandaNode("temp node"))
+        #tempnode.setShader(glowShader)
+        #glowCamera.node().setInitialState(tempnode.getState())
+        #
+        ## set up the pipeline: from glow scene to blur x to blur y to main window.
+        #blurXBuffer=self.makeFilterBuffer(glowBuffer,  "Blur X", -2, "shaders/XBlurShader.sha")
+        #blurYBuffer=self.makeFilterBuffer(blurXBuffer, "Blur Y", -1, "shaders/YBlurShader.sha")
+        #self.finalcard = blurYBuffer.getTextureCard()
+        #self.finalcard.reparentTo(render2d)
+        #self.finalcard.setAttrib(ColorBlendAttrib.make(ColorBlendAttrib.MAdd))
+        #
+        #base.bufferViewer.setPosition("llcorner")
+        #base.bufferViewer.setLayout("hline")
+        #base.bufferViewer.setCardSize(0.652,0)
+        #base.bufferViewer.toggleEnable
+        
+        # Toon test
+        #self.separation = 0.5
+        ## This shader's job is to render the model with discrete lighting
+        ## levels.  The lighting calculations built into the shader assume
+        ## a single nonattenuating point light.
+        #
+        #tempnode = NodePath(PandaNode("temp node"))
+        #tempnode.setShader(loader.loadShader("shaders/lightingGen.sha"))
+        #base.cam.node().setInitialState(tempnode.getState())
+        #
+        ## This is the object that represents the single "light", as far
+        ## the shader is concerned.  It's not a real Panda3D LightNode, but
+        ## the shader doesn't care about that.
+        #
+        #light = render.attachNewNode("light")
+        #light.setPos(30,-50,0)
+        #        
+        ## this call puts the light's nodepath into the render state.
+        ## this enables the shader to access this light by name.
+        #
+        #render.setShaderInput("light", light)
+        #
+        ## The "normals buffer" will contain a picture of the model colorized
+        ## so that the color of the model is a representation of the model's
+        ## normal at that point.
+        #
+        #normalsBuffer=base.win.makeTextureBuffer("normalsBuffer", 0, 0)
+        #normalsBuffer.setClearColor(Vec4(0.5,0.5,0.5,1))
+        #self.normalsBuffer=normalsBuffer
+        #normalsCamera=base.makeCamera(normalsBuffer, lens=base.cam.node().getLens())
+        #normalsCamera.node().setScene(render)
+        #tempnode = NodePath(PandaNode("temp node"))
+        #tempnode.setShader(loader.loadShader("shaders/normalGen.sha"))
+        #normalsCamera.node().setInitialState(tempnode.getState())
+        #
+        ##what we actually do to put edges on screen is apply them as a texture to 
+        ##a transparent screen-fitted card
+        #
+        #drawnScene=normalsBuffer.getTextureCard()
+        #drawnScene.setTransparency(1)
+        #drawnScene.setColor(1,1,1,0)
+        #drawnScene.reparentTo(render2d)
+        #self.drawnScene = drawnScene
+        #
+        ## this shader accepts, as input, the picture from the normals buffer.
+        ## it compares each adjacent pixel, looking for discontinuities.
+        ## wherever a discontinuity exists, it emits black ink.
+        #        
+        #self.separation = 0.001
+        #self.cutoff = 0.3
+        #inkGen = loader.loadShader("shaders/inkGen.sha")
+        #drawnScene.setShader(inkGen)
+        #drawnScene.setShaderInput("separation", Vec4(self.separation,0,self.separation,0));
+        #drawnScene.setShaderInput("cutoff", Vec4(self.cutoff,self.cutoff,self.cutoff,self.cutoff));
+        
+        
+        ### GO GO GO #####################################
+        self.gameMgr.startGame()
         # Debugging
         #self.coordDebug3D()
         #self.coordDebug3D(s1.baseNode)
@@ -77,7 +186,18 @@ class World(DirectObject):
         #print(s1.pos)
         #print(s1.model.getPos())
         
-    
+    def makeFilterBuffer(self, srcbuffer, name, sort, prog):
+        blurBuffer=base.win.makeTextureBuffer(name, 512, 512)
+        blurBuffer.setSort(sort)
+        blurBuffer.setClearColor(Vec4(0,0,0,1))
+        blurCamera=base.makeCamera2d(blurBuffer)
+        blurScene=NodePath("new Scene")
+        blurCamera.node().setScene(blurScene)
+        shader = loader.loadShader(prog)
+        card = srcbuffer.getTextureCard()
+        card.reparentTo(blurScene)
+        card.setShader(shader)
+        return blurBuffer
     
     # Coord debug functions
     # From http://code.google.com/p/python-panda3d-examples/wiki/PandaCoords
@@ -125,6 +245,8 @@ class GameManager(object):
     
     _hitRadius = 3
     
+    turnCount = 0
+    
     def __init__(self):
         Event.Dispatcher().register(self, 'E_Unit_EndTurn', self._nextTurn)
         Event.Dispatcher().register(self, 'E_HitCheck',     self._checkHit)
@@ -139,6 +261,12 @@ class GameManager(object):
         
     def addPlayerUnit(self, id, unit):
         self._players[id]['units'].append(unit)
+
+    def startGame(self):
+        self._nextTurn(None)
+    
+    def getCurrentPlayer(self):
+        return self._players[self._activePlayer]
     
     def _checkHit(self, event):
         shooter = event.source
@@ -158,60 +286,85 @@ class GameManager(object):
                     hitSequence.start()
     
     def _nextTurn(self, event):
-        currPlayer = self._players[self._activePlayer]
-        # are there any more units left for the current player?
-        if (self._activeUnit < len(currPlayer['units']) - 1):
-            # next unit same player
-            LOG.debug("Switching from p%s u%s to u%s"%(self._activePlayer, self._activeUnit, self._activeUnit + 1))
-            
-            currPlayer['units'][self._activeUnit].endTurn()
-            self._activeUnit += 1
-            currPlayer['units'][self._activeUnit].startTurn()
-        else:
-            # lookup next player
-            numPlayers = len(self._players)
-            
-            playerIDList      = self._players.keys()
-            playerIDList.sort()
-            print(playerIDList)
-            activePlayerIndex = playerIDList.index(self._activePlayer)
-            nextPlayerIndex   = (activePlayerIndex + 1) % len(playerIDList)
-            nextPlayerID      = playerIDList[nextPlayerIndex]
-            
-            nextPlayer = self._players[nextPlayerID]
-            
-            self._activePlayer = nextPlayerID
-            currPlayer['units'][self._activeUnit].endTurn()
-            self._activeUnit = 0
-            nextPlayer['units'][self._activeUnit].startTurn()
+        if (event is not None):
+            currPlayer = self._players[self._activePlayer]
+            # are there any more units left for the current player?
+            if (self._activeUnit < len(currPlayer['units']) - 1):
+                # next unit same player
+                LOG.debug("Switching from p%s u%s to u%s"%(self._activePlayer, self._activeUnit, self._activeUnit + 1))
+                
+                currPlayer['units'][self._activeUnit].endTurn()
+                self._activeUnit += 1
+                currPlayer['units'][self._activeUnit].startTurn()
+            else:
+                # lookup next player
+                numPlayers = len(self._players)
+                playerIDList      = self._players.keys()
+                playerIDList.sort()
+                #print(playerIDList)
+                activePlayerIndex = playerIDList.index(self._activePlayer)
+                nextPlayerIndex   = (activePlayerIndex + 1) % len(playerIDList)
+                nextPlayerID      = playerIDList[nextPlayerIndex]
+                
+                nextPlayer = self._players[nextPlayerID]
+                
+                self._activePlayer = nextPlayerID
+                currPlayer['units'][self._activeUnit].endTurn()
+                self._activeUnit = 0
+                nextPlayer['units'][self._activeUnit].startTurn()
+                
+                turnCount += 1
         
         e = Event.Event('E_NewCameraTarget',
                         self,
                         data=self._players[self._activePlayer]['units'][self._activeUnit])
         Event.Dispatcher().broadcast(e)
+        e = Event.Event('E_TurnInfoUpdate',
+                        self,
+                        data=self._players[self._activePlayer]['units'][self._activeUnit])
+        Event.Dispatcher().broadcast(e)
 
 class GuiManager(object):
-    _playerText  = None
-    _pitchText   = None
-    _headingText = None
-    _powerText   = None
-    _damageText  = None
-    
+    _playerText     = None
+    _pitchText      = None
+    _headingText    = None
+    _powerText      = None
+    _damageText     = None
+    _currPlayerText = None
+    _turnNumText    = None
+    _unitTypeText   = None
     
     def __init__(self):
         Event.Dispatcher().register(self, 'E_UnitInfoUpdate',   self.updateShipInfo)
-        Event.Dispatcher().register(self, 'E_TurnInfoUpdate',   self.updateShipInfo)
+        Event.Dispatcher().register(self, 'E_TurnInfoUpdate',   self.updateTurnInfo)
         
         self.updateShipInfo(None, True)
         self.updateTurnInfo(None, True)
     
     def updateTurnInfo(self, event, init=False):
-        self._currPlayerText   = OnscreenText(text = 'Player 1',
+        if (not init):
+            self._currPlayerText.destroy()
+            self._turnNumText.destroy()
+            self._unitTypeText.destroy()
+            
+            player   = event.source.getCurrentPlayer()['name']
+            turnNum  = str(event.source.turnCount)
+            unitType = event.data.title
+        else:
+            player   = '-'
+            turnNum  = '-'
+            unitType = '-'
+        
+        self._currPlayerText   = OnscreenText(text = player,
                                               pos = (1.00, 0.95),
                                               scale = 0.05,
                                               align = TextNode.ALeft)
-        self._turnNomText      = OnscreenText(text = 'Turn 1',
+        self._turnNumText      = OnscreenText(text = turnNum,
                                               pos = (1.00, 0.87),
+                                              scale = 0.05,
+                                              align = TextNode.ALeft)
+        self._unitTypeText     = OnscreenText(text = unitType,
+                                              pos = (1.00, 0.79),
                                               scale = 0.05,
                                               align = TextNode.ALeft)
     

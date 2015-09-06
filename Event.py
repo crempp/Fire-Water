@@ -43,6 +43,7 @@ EVENTS = ['E_All',
           'E_ExitProgram',
           
           'E_UnitInfoUpdate',
+          'E_TurnInfoUpdate',
           
           'E_EntitySelect',
           'E_EntityUnSelect',
